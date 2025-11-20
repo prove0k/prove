@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ABC 快樂花園 - K1 英文學習</title>
+    <style>
+        /* 全局設定 */
+        :root {
+            --primary-color: #FFB7B2; /* 柔和粉紅 */
+            --secondary-color: #B5EAD7; /* 柔和薄荷 */
+            --accent-color: #C7CEEA; /* 柔和紫 */
+            --text-color: #555;
+            --font-main: 'Varela Round', 'Nunito', sans-serif;
+            
+            /* 動態調整的變數 */
+            --font-scale: 1;
+            --icon-scale: 1;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: #FFF9F0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--text-color);
+            user-select: none; /* 防止幼兒選取文字 */
+        }
+
+        h1 {
+            color: #FF9AA2;
+            margin: 20px 0 10px 0;
+            font-size: calc(2rem * var(--font-scale));
+            text-shadow: 2px 2px 0px #FFF;
+        }
+
+        /* 設定面板按鈕 */
+        .settings-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #fff;
+            border: 2px solid #eee;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        /* 設定面板 */
+        .settings-panel {
+            display: none;
+            position: fixed;
+            top: 60px;
+            right: 15px;
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 99;
+            width: 200px;
+            border: 2px solid var(--secondary-color);
+        }
+
+        .settings-item {
+            margin-bottom: 10px;
+        }
+        
+        .settings-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .settings-item input {
+            width: 100%;
+        }
+
+        /* 導航按鈕區 */
+        .nav-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .nav-btn {
+            padding: 10px 20px;
+            font-size: calc(1.2rem * var(--font-scale));
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .nav-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-learn { background-color: var(--secondary-color); color: #00695C; }
+        .btn-quiz { background-color: var(--primary-color); color: #C62828; }
+
+        /* 主要內容區 */
+        #app-container {
+            width: 90%;
+            max-width: 600px;
+            background: white;
+            border-radius: 25px;
+            padding: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* 字母選擇網格 */
+        .letter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+            gap: 15px;
+            padding: 10px;
+        }
+
+        .letter-card {
+            background: #E2F0CB;
+            border-radius: 15px;
+            padding: 15px;
+            font-size: calc(2rem * var(--font-scale));
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #9CCC65;
+            transition: all 0.1s;
+            color: #558B2F;
+        }
+
+        .letter-card:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #9CCC65;
+        }
+
+        /* 單字展示區 */
+        .word-display {
+            animation: fadeIn 0.5s ease;
+        }
+
+        .big-letter {
+            font-size: calc(5rem * var(--icon-scale));
+            color: #FF9AA2;
+            margin-bottom: 10px;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .vocab-list {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .vocab-item {
+            background: #F0F4F8;
+            border-radius: 15px;
+            padding: 15px;
+            width: 30%;
+            min-width: 100px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .vocab-item:hover {
+            transform: scale(1.1);
+            border-color: var(--secondary-color);
+            background: #fff;
+        }
+
+        .vocab-icon {
+            font-size: calc(3rem * var(--icon-scale));
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .vocab-text {
+            font-size: calc(1.2rem * var(--font-scale));
+            font-weight: bold;
+            color: #444;
+        }
+
+        /* 測驗模式 */
+        .quiz-container {
+            text-align: center;
+        }
+        
+        .quiz-info {
+            font-size: calc(1.2rem * var(--font-scale));
+            color: #fff;
+            margin-bottom: 15px;
+            background: #FFAB91;
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            box-shadow: 0 2px 0 #E64A19;
+        }
+
+        .question-text {
+            font-size: calc(1.5rem * var(--font-scale));
+            margin-bottom: 30px;
+            color: #333;
+        }
+
+        .quiz-options {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .quiz-option {
+            background: white;
+            border: 3px solid #eee;
+            border-radius: 20px;
+            padding: 20px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            min-width: 100px;
+        }
+
+        .quiz-option:hover {
+            transform: scale(1.05);
+            border-color: var(--accent-color);
+        }
+        
+        .quiz-icon {
+            font-size: calc(3.5rem * var(--icon-scale));
+        }
+
+        .feedback-msg {
+            font-size: calc(2rem * var(--font-scale));
+            margin-top: 20px;
+            min-height: 3rem;
+            font-weight: bold;
+        }
+        
+        .result-screen {
+            animation: fadeIn 1s;
+        }
+
+        .correct { color: #4CAF50; animation: bounce 0.5s; }
+        .wrong { color: #F44336; animation: shake 0.5s; }
+
+        /* 返回按鈕 */
+        .back-btn {
+            margin-top: 20px;
+            background: #eee;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: calc(1rem * var(--font-scale));
+            color: #777;
+        }
+        
+        .restart-btn {
+            background: var(--secondary-color);
+            color: #00695C;
+            font-size: 1.5rem;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 5px 0 #80CBC4;
+        }
+        .restart-btn:active {
+            transform: translateY(5px);
+            box-shadow: none;
+        }
+
+        /* 動畫 */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+
+    </style>
+    <!-- 引入 Google Fonts 適合兒童的字體 -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&family=Varela+Round&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- 設定按鈕 -->
+    <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
+    
+    <!-- 設定面板 -->
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-item">
+            <label>字體大小 (Text Size)</label>
+            <input type="range" min="0.8" max="2.0" step="0.1" value="1" oninput="updateFontScale(this.value)">
+        </div>
+        <div class="settings-item">
+            <label>圖案大小 (Icon Size)</label>
+            <input type="range" min="0.8" max="2.0" step="0.1" value="1" oninput="updateIconScale(this.value)">
+        </div>
+        <div style="text-align: center; margin-top: 10px;">
+            <button onclick="toggleSettings()" style="padding: 5px 15px; border-radius: 10px; border: 1px solid #ccc;">關閉</button>
+        </div>
+    </div>
+
+    <h1>🌱 ABC 快樂花園</h1>
+
+    <div class="nav-container">
+        <button class="nav-btn btn-learn" onclick="switchMode('learn')">📖 學習 (Learn)</button>
+        <button class="nav-btn btn-quiz" onclick="switchMode('quiz')">🎮 遊戲 (Game)</button>
+    </div>
+
+    <div id="app-container">
+        <!-- 內容將由 JavaScript 動態生成 -->
+    </div>
+
+    <script>
+        // 資料庫：單字與 Emoji 對應
+        const vocabulary = {
+            'A': {
+                items: [
+                    { word: 'apple', icon: '🍎', zh: '蘋果' },
+                    { word: 'ant', icon: '🐜', zh: '螞蟻' },
+                    { word: 'axe', icon: '🪓', zh: '斧頭' }
+                ]
+            },
+            'B': {
+                items: [
+                    { word: 'boy', icon: '👦', zh: '男孩' },
+                    { word: 'banana', icon: '🍌', zh: '香蕉' },
+                    { word: 'ball', icon: '⚽', zh: '球' }
+                ]
+            },
+            'C': {
+                items: [
+                    { word: 'cake', icon: '🍰', zh: '蛋糕' },
+                    { word: 'cat', icon: '🐱', zh: '貓' },
+                    { word: 'car', icon: '🚗', zh: '車' }
+                ]
+            },
+            'D': {
+                items: [
+                    { word: 'dog', icon: '🐶', zh: '狗' },
+                    { word: 'door', icon: '🚪', zh: '門' },
+                    { word: 'doll', icon: '🎎', zh: '洋娃娃' }
+                ]
+            },
+            'E': {
+                items: [
+                    { word: 'egg', icon: '🥚', zh: '蛋' },
+                    { word: 'elephant', icon: '🐘', zh: '大象' },
+                    { word: 'eye', icon: '👁️', zh: '眼睛' }
+                ]
+            },
+            'F': {
+                items: [
+                    { word: 'fish', icon: '🐟', zh: '魚' },
+                    { word: 'fire', icon: '🔥', zh: '火' },
+                    { word: 'flash', icon: '📸', zh: '閃光' }
+                ]
+            },
+            'G': {
+                items: [
+                    { word: 'girl', icon: '👧', zh: '女孩' },
+                    { word: 'goat', icon: '🐐', zh: '山羊' },
+                    { word: 'grass', icon: '🌿', zh: '草' }
+                ]
+            },
+            'H': {
+                items: [
+                    { word: 'hand', icon: '✋', zh: '手' },
+                    { word: 'head', icon: '🗣️', zh: '頭' },
+                    { word: 'happy', icon: '😄', zh: '快樂' }
+                ]
+            }
+        };
+
+        const container = document.getElementById('app-container');
+        let currentMode = 'learn';
+        let currentQuizAnswer = null;
+        let quizCount = 0;
+        let totalQuestions = 10; // 設定總題數
+
+        // 初始化語音合成
+        const synth = window.speechSynthesis;
+
+        function speak(text, lang = 'en-US') {
+            synth.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            utterance.rate = 0.9;
+            utterance.pitch = 1.1;
+            synth.speak(utterance);
+        }
+
+        // 初始化
+        function init() {
+            showLetterGrid();
+        }
+        
+        // 設定面板控制
+        function toggleSettings() {
+            const panel = document.getElementById('settingsPanel');
+            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function updateFontScale(val) {
+            document.documentElement.style.setProperty('--font-scale', val);
+        }
+
+        function updateIconScale(val) {
+            document.documentElement.style.setProperty('--icon-scale', val);
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            if (mode === 'learn') {
+                showLetterGrid();
+            } else {
+                quizCount = 0;
+                startQuiz();
+            }
+        }
+
+        // 1. 學習模式
+        function showLetterGrid() {
+            container.innerHTML = '<h2>👇 點擊一個字母開始學習 👇</h2><div class="letter-grid" id="grid"></div>';
+            const grid = document.getElementById('grid');
+            
+            Object.keys(vocabulary).forEach(letter => {
+                const card = document.createElement('div');
+                card.className = 'letter-card';
+                card.innerText = letter;
+                card.onclick = () => showLetterDetail(letter);
+                grid.appendChild(card);
+            });
+        }
+
+        // 2. 學習模式：詳細頁
+        function showLetterDetail(letter) {
+            const data = vocabulary[letter];
+            speak(`${letter}... ${data.items[0].word}`);
+
+            let html = `
+                <div class="word-display">
+                    <div class="big-letter" onclick="speak('${letter}')">${letter}${letter.toLowerCase()}</div>
+                    <div class="vocab-list">
+            `;
+
+            data.items.forEach(item => {
+                html += `
+                    <div class="vocab-item" onclick="speak('${item.word}')">
+                        <span class="vocab-icon">${item.icon}</span>
+                        <span class="vocab-text">${item.word}</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                    <button class="back-btn" onclick="showLetterGrid()">↩️ 返回字母表</button>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        // 3. 遊戲模式
+        function startQuiz() {
+            // 檢查是否完成所有題目
+            if (quizCount >= totalQuestions) {
+                showResult();
+                return;
+            }
+
+            quizCount++; // 增加題數
+            
+            const letters = Object.keys(vocabulary);
+            const randomLetter = letters[Math.floor(Math.random() * letters.length)];
+            const items = vocabulary[randomLetter].items;
+            const answerObj = items[Math.floor(Math.random() * items.length)];
+            currentQuizAnswer = answerObj.word;
+
+            let options = [answerObj];
+            while (options.length < 3) {
+                const rLetter = letters[Math.floor(Math.random() * letters.length)];
+                if (rLetter === randomLetter) continue;
+                const rItems = vocabulary[rLetter].items;
+                const rItem = rItems[Math.floor(Math.random() * rItems.length)];
+                if (!options.find(o => o.word === rItem.word)) {
+                    options.push(rItem);
+                }
+            }
+            options.sort(() => Math.random() - 0.5);
+
+            setTimeout(() => speak(`Where is the ${currentQuizAnswer}?`), 500);
+
+            // 注意：這裡的 quizCount 顯示邏輯修改為 "第 X / 10 題"
+            let html = `
+                <div class="quiz-container">
+                    <div class="quiz-info">第 ${quizCount} / ${totalQuestions} 題</div>
+                    <div class="question-text" onclick="speak('Where is the ${currentQuizAnswer}?')">
+                        🔊 Where is the <b>${currentQuizAnswer}</b>?
+                        <br><span style="font-size:0.8rem; color:#999;">(點擊文字重聽)</span>
+                    </div>
+                    <div class="quiz-options">
+            `;
+
+            options.forEach(item => {
+                html += `
+                    <div class="quiz-option" onclick="checkAnswer('${item.word}')">
+                        <div class="quiz-icon">${item.icon}</div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                    <div id="feedback" class="feedback-msg"></div>
+                    <button class="back-btn" onclick="startQuiz()">➡️ 下一題 (Skip)</button>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function checkAnswer(selectedWord) {
+            const feedback = document.getElementById('feedback');
+            if (selectedWord === currentQuizAnswer) {
+                feedback.innerHTML = "🎉 Great Job! 答對了!";
+                feedback.className = "feedback-msg correct";
+                speak("Good job!");
+                setTimeout(startQuiz, 2000);
+            } else {
+                feedback.innerHTML = "🤔 Try again! 再試試看!";
+                feedback.className = "feedback-msg wrong";
+                speak("Try again");
+            }
+        }
+        
+        // 4. 通關畫面
+        function showResult() {
+             speak("Congratulations! You did a great job!");
+             container.innerHTML = `
+                <div class="result-screen">
+                    <div style="font-size: 5rem;">🏆</div>
+                    <h2 style="color: #FF9AA2; font-size: 2.5rem;">太棒了！完成挑戰！</h2>
+                    <p style="font-size: 1.2rem;">Great Job! You finished all questions!</p>
+                    <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                        <span style="font-size: 3rem;">🍎</span>
+                        <span style="font-size: 3rem;">🐶</span>
+                        <span style="font-size: 3rem;">🌟</span>
+                        <span style="font-size: 3rem;">🐱</span>
+                    </div>
+                    <button class="restart-btn" onclick="switchMode('quiz')">再來玩一次! (Replay)</button>
+                </div>
+             `;
+        }
+
+        init();
+    </script>
+</body>
+</html>

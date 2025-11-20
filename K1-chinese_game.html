@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>廣東話識字小遊戲</title>
+    <style>
+        :root {
+            --bg-color: #E0F2F1;
+            --card-color: #FFFFFF;
+            --primary-color: #26A69A;
+            --text-color: #333;
+            --font-main: 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
+            --font-scale: 1; /* 新增變數控制字體大小 */
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            user-select: none;
+        }
+
+        h1 {
+            color: #00695C;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        /* 設定按鈕 */
+        .settings-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: transparent;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            opacity: 0.6;
+        }
+
+        #settings-panel {
+            display: none;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            position: absolute;
+            top: 50px;
+            right: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+            width: 220px; /* 設定寬度讓拉桿好放 */
+        }
+
+        /* 遊戲區域 */
+        #game-container {
+            width: 90%;
+            max-width: 600px;
+            background: rgba(255,255,255,0.8);
+            border-radius: 25px;
+            padding: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        /* 進度條 */
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #B2DFDB;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary-color);
+            width: 0%;
+            transition: width 0.5s;
+        }
+
+        /* 題目區 (喇叭) */
+        .question-area {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .speaker-btn {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #4DB6AC;
+            color: white;
+            border: none;
+            font-size: 3rem;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #00897B;
+            transition: transform 0.1s, box-shadow 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+        }
+
+        .speaker-btn:active {
+            transform: translateY(5px);
+            box-shadow: none;
+        }
+        
+        .speaker-hint {
+            margin-top: 10px;
+            color: #666;
+            font-size: 1.2rem;
+        }
+
+        /* 選項區 (純文字卡片) */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .word-card {
+            background: var(--card-color);
+            border: 4px solid #eee;
+            border-radius: 15px;
+            height: 160px; /* 修改：高度增加 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+            font-size: calc(3rem * var(--font-scale)); /* 修改：使用變數控制大小 */
+            font-weight: bold;
+            color: #333;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .word-card:hover {
+            transform: scale(1.05);
+            border-color: var(--primary-color);
+            background: #E0F2F1;
+        }
+
+        .word-card:active {
+            transform: scale(0.95);
+        }
+
+        /*回饋動畫*/
+        .correct {
+            border-color: #66BB6A !important;
+            background-color: #E8F5E9 !important;
+            color: #2E7D32;
+            animation: bounce 0.5s;
+        }
+
+        .wrong {
+            border-color: #EF5350 !important;
+            background-color: #FFEBEE !important;
+            color: #C62828;
+            animation: shake 0.5s;
+        }
+
+        /* 通關畫面 */
+        .result-screen {
+            text-align: center;
+            display: none;
+        }
+
+        .restart-btn {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #00796B;
+        }
+
+        @keyframes bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+
+    </style>
+</head>
+<body>
+
+    <h1>👂 聽音辨字 (廣東話)</h1>
+    
+    <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
+    <div id="settings-panel">
+        <label>字體大小 (Text Size):</label><br>
+        <input type="range" min="0.6" max="1.6" step="0.1" value="1" oninput="updateFontScale(this.value)" style="width: 100%; margin-bottom: 15px;">
+        
+        <label>語音測試 (請確認聽到廣東話):</label><br>
+        <button onclick="speak('你好', true)" style="margin-top:5px;">🔊 測試發音</button>
+    </div>
+
+    <div id="game-container">
+        
+        <!-- 進度 -->
+        <div style="width:100%; display:flex; justify-content:space-between; margin-bottom:5px; color:#666;">
+            <span>題目</span>
+            <span id="score-text">1 / 10</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+
+        <!-- 遊戲中畫面 -->
+        <div id="game-play-area">
+            <div class="question-area">
+                <button class="speaker-btn" onclick="playCurrentQuestion()">🔊</button>
+                <div class="speaker-hint">點擊喇叭聽題目</div>
+            </div>
+
+            <div class="options-grid" id="options-area">
+                <!-- 選項動態生成 -->
+            </div>
+            
+            <div id="feedback-text" style="height: 30px; text-align: center; margin-top: 15px; font-weight: bold; font-size: 1.2rem; color: #FF7043;"></div>
+        </div>
+
+        <!-- 結算畫面 -->
+        <div id="result-area" class="result-screen">
+            <div style="font-size: 5rem;">🎉</div>
+            <h2>太棒了！你完成了！</h2>
+            <p>小朋友真聰明，認得好多字！</p>
+            <button class="restart-btn" onclick="startGame()">再來玩一次</button>
+        </div>
+    </div>
+
+    <script>
+        // 單字庫 (純文字)
+        const wordList = [
+            "老師", "上學", "再見", "謝謝",
+            "玩具", "車",
+            "口", "手", "眼", "鼻", "頭", "腳", "耳",
+            "爸爸", "媽媽", "哥哥", "弟弟", "姐姐", "妹妹"
+        ];
+
+        let currentRound = 0;
+        let totalRounds = 10;
+        let currentTarget = "";
+        let isAnswering = true;
+        const synth = window.speechSynthesis;
+        
+        // 新增：更新字體大小函數
+        function updateFontScale(val) {
+            document.documentElement.style.setProperty('--font-scale', val);
+        }
+
+        // 嘗試尋找廣東話語音
+        function getCantoneseVoice() {
+            const voices = synth.getVoices();
+            // 優先尋找 HK，其次是 TW (有些系統會混用)，再次是任何 zh 開頭
+            return voices.find(v => v.lang === 'zh-HK') || 
+                   voices.find(v => v.lang === 'zh-TW') || 
+                   null;
+        }
+
+        function speak(text, isTest = false) {
+            synth.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            // 強制設定為粵語代碼，瀏覽器會盡力匹配
+            utterance.lang = 'zh-HK'; 
+            
+            const voice = getCantoneseVoice();
+            if (voice) {
+                utterance.voice = voice;
+            }
+
+            utterance.rate = 0.8; // 稍微慢一點
+            synth.speak(utterance);
+            
+            if(isTest) {
+                alert("發音測試：\n如果聽到的是普通話，請檢查您的裝置是否安裝了廣東話(粵語)語音包。\n(iOS/Mac通常內建，Windows可能需要設定)");
+            }
+        }
+
+        function toggleSettings() {
+            const p = document.getElementById('settings-panel');
+            p.style.display = p.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function init() {
+            // 確保語音列表已加載 (Chrome有時需要等待)
+            if (synth.onvoiceschanged !== undefined) {
+                synth.onvoiceschanged = getCantoneseVoice;
+            }
+            startGame();
+        }
+
+        function startGame() {
+            currentRound = 0;
+            document.getElementById('result-area').style.display = 'none';
+            document.getElementById('game-play-area').style.display = 'block';
+            nextRound();
+        }
+
+        function nextRound() {
+            if (currentRound >= totalRounds) {
+                showResult();
+                return;
+            }
+
+            currentRound++;
+            updateUI();
+            isAnswering = true;
+            document.getElementById('feedback-text').innerText = "";
+
+            // 1. 選題目
+            const targetIndex = Math.floor(Math.random() * wordList.length);
+            currentTarget = wordList[targetIndex];
+
+            // 2. 選干擾項 (3個不重複的)
+            let options = [currentTarget];
+            let pool = wordList.filter(w => w !== currentTarget);
+            
+            while(options.length < 4) {
+                const ridx = Math.floor(Math.random() * pool.length);
+                options.push(pool[ridx]);
+                pool.splice(ridx, 1); // 移除避免重複
+            }
+
+            // 3. 打亂
+            options.sort(() => Math.random() - 0.5);
+
+            // 4. 渲染選項
+            const grid = document.getElementById('options-area');
+            grid.innerHTML = '';
+            
+            options.forEach(word => {
+                const btn = document.createElement('div');
+                btn.className = 'word-card';
+                btn.innerText = word;
+                btn.onclick = () => checkAnswer(word, btn);
+                grid.appendChild(btn);
+            });
+
+            // 5. 自動播放題目
+            setTimeout(playCurrentQuestion, 500);
+        }
+
+        function playCurrentQuestion() {
+            speak(currentTarget);
+        }
+
+        function checkAnswer(answer, btnElement) {
+            if (!isAnswering) return;
+
+            if (answer === currentTarget) {
+                // 答對
+                isAnswering = false;
+                btnElement.className += " correct";
+                document.getElementById('feedback-text').innerText = "答對了！";
+                document.getElementById('feedback-text').style.color = "#2E7D32";
+                speak("好叻！"); // 廣東話讚美
+                setTimeout(nextRound, 1500);
+            } else {
+                // 答錯
+                btnElement.className += " wrong";
+                document.getElementById('feedback-text').innerText = "再聽一次喔！";
+                document.getElementById('feedback-text').style.color = "#C62828";
+                speak("試多次"); // 廣東話重試
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('score-text').innerText = `${currentRound} / ${totalRounds}`;
+            const pct = ((currentRound - 1) / totalRounds) * 100;
+            document.getElementById('progress-fill').style.width = `${pct}%`;
+        }
+
+        function showResult() {
+            document.getElementById('game-play-area').style.display = 'none';
+            document.getElementById('result-area').style.display = 'block';
+            document.getElementById('progress-fill').style.width = '100%';
+            speak("恭喜你！完成晒啦！");
+        }
+
+        // 啟動
+        init();
+
+    </script>
+</body>
+</html>
