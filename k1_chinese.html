@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K1 快樂識字卡</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* 防止點擊時出現藍色框框 */
+        button, div {
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        }
+        
+        /* 答對時的動畫 */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop {
+            animation: pop 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4">
+
+    <!-- Header & Mode Switch -->
+    <div class="max-w-5xl mx-auto mb-6 pt-4">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+            <!-- Title -->
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-800 flex items-center gap-3">
+                <span class="text-4xl md:text-5xl">🎒</span> 
+                K1 快樂識字卡 
+            </h1>
+
+            <!-- Mode Switch Buttons -->
+            <div class="bg-white p-1 rounded-full shadow-sm border border-slate-200 flex">
+                <button onclick="setMode('learn')" id="btn-learn" class="px-6 py-2 rounded-full text-lg font-bold transition-all flex items-center gap-2">
+                    <i data-lucide="book-open" width="20"></i> 學習
+                </button>
+                <button onclick="setMode('game')" id="btn-game" class="px-6 py-2 rounded-full text-lg font-bold transition-all flex items-center gap-2">
+                    <i data-lucide="gamepad-2" width="20"></i> 遊戲
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Status Bar (Only visible in Game Mode) -->
+    <div id="game-bar" class="hidden max-w-5xl mx-auto mb-6 bg-indigo-600 text-white rounded-2xl p-4 shadow-lg transform transition-all">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <button onclick="repeatQuestion()" class="bg-white/20 hover:bg-white/30 p-3 rounded-full transition-colors" title="再聽一次">
+                    <i data-lucide="volume-2" width="28" height="28"></i>
+                </button>
+                <div>
+                    <p class="text-indigo-200 text-sm">題目</p>
+                    <p id="game-instruction" class="text-xl font-bold">請找出...</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl">
+                <span class="text-2xl">⭐️</span>
+                <span id="score-display" class="text-2xl font-bold">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Tabs -->
+    <div id="category-container" class="max-w-5xl mx-auto mb-8 flex flex-wrap justify-center gap-3 transition-all duration-300">
+        <!-- 按鈕將由 JavaScript 動態生成 -->
+    </div>
+
+    <!-- Cards Grid -->
+    <div id="cards-container" class="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-20">
+        <!-- 卡片將由 JavaScript 動態生成 -->
+    </div>
+
+    <!-- Full Screen Feedback Overlay -->
+    <div id="feedback-overlay" class="fixed inset-0 pointer-events-none flex items-center justify-center z-50 opacity-0 transition-opacity duration-300">
+        <div class="bg-white/95 backdrop-blur-sm p-8 rounded-3xl shadow-2xl transform scale-0 transition-transform duration-300 text-center min-w-[300px] border-4 border-white/50" id="feedback-content">
+            <div class="text-8xl mb-6" id="feedback-icon">🎉</div>
+            <h2 class="text-4xl font-bold mb-2" id="feedback-title">好棒！</h2>
+            <p class="text-2xl text-slate-500" id="feedback-subtitle"></p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center text-slate-400 text-sm pb-8">
+        老師小撇步：遊戲模式下，系統會自動出題，請小朋友點擊正確的卡片！
+    </div>
+
+    <script>
+        // 詞彙資料庫
+        const vocabData = [
+            // 學校與禮貌
+            { id: 1, word: "老師", emoji: "👩‍🏫", category: "school", color: "bg-pink-100" },
+            { id: 2, word: "上學", emoji: "🎒", category: "school", color: "bg-pink-100" },
+            { id: 3, word: "再見", emoji: "👋", category: "school", color: "bg-pink-100" },
+            { id: 4, word: "謝謝", emoji: "🙏", category: "school", color: "bg-pink-100" },
+            
+            // 物品
+            { id: 5, word: "玩具", emoji: "🧸", category: "objects", color: "bg-yellow-100" },
+            { id: 6, word: "車", emoji: "🚗", category: "objects", color: "bg-yellow-100" },
+
+            // 身體部位
+            { id: 7, word: "口", emoji: "👄", category: "body", color: "bg-blue-100" },
+            { id: 8, word: "手", emoji: "🖐️", category: "body", color: "bg-blue-100" },
+            { id: 9, word: "眼", emoji: "👁️", category: "body", color: "bg-blue-100" },
+            { id: 10, word: "鼻", emoji: "👃", category: "body", color: "bg-blue-100" },
+            { id: 11, word: "耳", emoji: "👂", category: "body", color: "bg-blue-100" },
+            { id: 12, word: "頭", emoji: "👦", category: "body", color: "bg-blue-100" },
+            { id: 13, word: "腳", emoji: "🦶", category: "body", color: "bg-blue-100" },
+
+            // 家人
+            { id: 14, word: "爸爸", emoji: "👨", category: "family", color: "bg-green-100" },
+            { id: 15, word: "媽媽", emoji: "👩", category: "family", color: "bg-green-100" },
+            { id: 16, word: "哥哥", emoji: "👦", category: "family", color: "bg-green-100" },
+            { id: 17, word: "姐姐", emoji: "👧", category: "family", color: "bg-green-100" },
+            { id: 18, word: "弟弟", emoji: "👶", category: "family", color: "bg-green-100" },
+            { id: 19, word: "妹妹", emoji: "🧒", category: "family", color: "bg-green-100" },
+        ];
+
+        const categories = [
+            { id: 'all', name: '全部', icon: 'star' },
+            { id: 'school', name: '學校禮貌', icon: 'sun' },
+            { id: 'body', name: '身體部位', icon: 'smile' },
+            { id: 'family', name: '親愛家人', icon: 'heart' },
+            { id: 'objects', name: '生活物品', icon: 'package' },
+        ];
+
+        // 應用程式狀態
+        let currentCategory = 'all';
+        let isGameMode = false;
+        let score = 0;
+        let targetItem = null;
+        let isProcessing = false; // 防止重複點擊
+
+        // --- 核心功能 ---
+
+        function setMode(mode) {
+            isGameMode = (mode === 'game');
+            
+            // 更新按鈕樣式
+            const btnLearn = document.getElementById('btn-learn');
+            const btnGame = document.getElementById('btn-game');
+            const activeClass = "bg-indigo-500 text-white shadow-md";
+            const inactiveClass = "text-slate-500 hover:bg-slate-100";
+
+            if (isGameMode) {
+                btnLearn.className = btnLearn.className.replace(activeClass, inactiveClass).replace("bg-indigo-500 text-white shadow-md", "text-slate-500 hover:bg-slate-100");
+                btnGame.className = "px-6 py-2 rounded-full text-lg font-bold transition-all flex items-center gap-2 " + activeClass;
+                
+                document.getElementById('game-bar').classList.remove('hidden');
+                score = 0;
+                updateScore();
+                startNewRound();
+            } else {
+                btnGame.className = btnGame.className.replace(activeClass, inactiveClass).replace("bg-indigo-500 text-white shadow-md", "text-slate-500 hover:bg-slate-100");
+                btnLearn.className = "px-6 py-2 rounded-full text-lg font-bold transition-all flex items-center gap-2 " + activeClass;
+                
+                document.getElementById('game-bar').classList.add('hidden');
+                window.speechSynthesis.cancel(); // 停止發音
+            }
+
+            renderCards(); // 重新渲染卡片以更新點擊事件
+        }
+
+        function speak(text, callback) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-HK';
+            utterance.rate = 0.85; // 廣東話語速
+            if (callback) {
+                utterance.onend = callback;
+            }
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // --- 遊戲邏輯 ---
+
+        function getFilteredData() {
+            return currentCategory === 'all' 
+                ? vocabData 
+                : vocabData.filter(item => item.category === currentCategory);
+        }
+
+        function startNewRound() {
+            const items = getFilteredData();
+            if (items.length === 0) return;
+
+            // 隨機選擇一個單字
+            const randomIndex = Math.floor(Math.random() * items.length);
+            targetItem = items[randomIndex];
+            
+            // 更新提示文字
+            document.getElementById('game-instruction').innerText = `請找出...`;
+            
+            // 延遲一點點再說話
+            setTimeout(() => {
+                repeatQuestion();
+            }, 500);
+        }
+
+        function repeatQuestion() {
+            if (!targetItem) return;
+            speak(`請找出 ${targetItem.word}`);
+        }
+
+        function handleCardClick(item, cardElement) {
+            if (isProcessing) return;
+
+            if (!isGameMode) {
+                // 學習模式：直接發音
+                animateCard(cardElement, 'animate-pop');
+                speak(item.word);
+                return;
+            }
+
+            // 遊戲模式邏輯
+            if (item.id === targetItem.id) {
+                // --- 答對了 ---
+                isProcessing = true;
+                score++;
+                updateScore();
+                
+                // 設定成功彈窗內容
+                const icon = document.getElementById('feedback-icon');
+                const title = document.getElementById('feedback-title');
+                const subtitle = document.getElementById('feedback-subtitle');
+                
+                icon.innerHTML = "🎉";
+                title.innerHTML = "好棒！";
+                title.className = "text-5xl font-bold mb-2 text-indigo-600";
+                subtitle.innerHTML = ""; // 清空副標題
+
+                showFeedback();
+                
+                speak("好叻！答啱喇！", () => { 
+                    setTimeout(() => {
+                        hideFeedback();
+                        startNewRound();
+                        isProcessing = false;
+                    }, 1000);
+                });
+
+            } else {
+                // --- 答錯了 ---
+                isProcessing = true; // 鎖定，避免重複點擊
+                
+                // 設定錯誤彈窗內容
+                const icon = document.getElementById('feedback-icon');
+                const title = document.getElementById('feedback-title');
+                const subtitle = document.getElementById('feedback-subtitle');
+                
+                // 顯示選錯的那個字的圖案和文字
+                icon.innerHTML = item.emoji;
+                title.innerHTML = "你選錯了";
+                title.className = "text-5xl font-bold mb-2 text-red-500"; // 紅色字體
+                subtitle.innerHTML = `這是 <b>${item.word}</b>`; // 顯示這是什麼字
+
+                showFeedback();
+
+                // 語音提示：你選錯了，這是 XX
+                speak(`你選錯了，這是 ${item.word}`, () => {
+                    setTimeout(() => {
+                        hideFeedback();
+                        isProcessing = false; // 解鎖
+                    }, 1500); // 稍微停留久一點讓小朋友看清楚
+                });
+            }
+        }
+
+        function updateScore() {
+            document.getElementById('score-display').innerText = score;
+        }
+
+        function animateCard(element, animationClass) {
+            element.classList.remove(animationClass);
+            void element.offsetWidth; // 觸發 reflow
+            element.classList.add(animationClass);
+        }
+
+        // --- UI 渲染 ---
+
+        function showFeedback() {
+            const overlay = document.getElementById('feedback-overlay');
+            const content = document.getElementById('feedback-content');
+            
+            overlay.classList.remove('opacity-0');
+            content.classList.remove('scale-0');
+            content.classList.add('scale-100');
+        }
+
+        function hideFeedback() {
+            const overlay = document.getElementById('feedback-overlay');
+            const content = document.getElementById('feedback-content');
+            
+            overlay.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-0');
+        }
+
+        function renderCategories() {
+            const container = document.getElementById('category-container');
+            container.innerHTML = '';
+
+            categories.forEach(cat => {
+                const btn = document.createElement('button');
+                const isActive = currentCategory === cat.id;
+                
+                let classes = "flex items-center gap-2 px-4 py-2 rounded-full text-base font-bold transition-all transform hover:scale-105 shadow-sm border ";
+                if (isActive) {
+                    classes += "bg-indigo-100 text-indigo-700 border-indigo-200 shadow-indigo-100";
+                } else {
+                    classes += "bg-white text-slate-500 border-transparent hover:bg-indigo-50";
+                }
+                btn.className = classes;
+                
+                btn.innerHTML = `<i data-lucide="${cat.icon}" width="18" height="18"></i> ${cat.name}`;
+                
+                btn.onclick = () => {
+                    currentCategory = cat.id;
+                    renderCategories();
+                    renderCards();
+                    if (isGameMode) {
+                        score = 0;
+                        updateScore();
+                        startNewRound(); // 切換分類時重新出題
+                    }
+                };
+
+                container.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        function renderCards() {
+            const container = document.getElementById('cards-container');
+            container.innerHTML = '';
+
+            const items = getFilteredData();
+
+            items.forEach(item => {
+                const card = document.createElement('div');
+                
+                // 基本樣式
+                let cardClasses = `
+                    ${item.color} 
+                    relative cursor-pointer rounded-3xl p-6 
+                    flex flex-col items-center justify-center 
+                    shadow-md transition-all duration-200 transform border-4 border-white
+                    select-none
+                `;
+
+                if (!isGameMode) {
+                    cardClasses += " hover:shadow-xl hover:-translate-y-2 group";
+                } else {
+                    cardClasses += " active:scale-95 hover:shadow-lg";
+                }
+
+                card.className = cardClasses;
+
+                card.innerHTML = `
+                    <!-- Sound Icon Hint (隱藏於遊戲模式以減少干擾) -->
+                    ${!isGameMode ? `
+                    <div class="absolute top-4 right-4 text-slate-400 group-hover:text-indigo-600 transition-colors">
+                        <i data-lucide="volume-2" width="24" height="24"></i>
+                    </div>` : ''}
+
+                    <!-- Image/Emoji -->
+                    <div class="text-7xl mb-4 filter drop-shadow-sm ${!isGameMode ? 'transform group-hover:scale-110 transition-transform duration-300' : ''}">
+                        ${item.emoji}
+                    </div>
+
+                    <!-- Word -->
+                    <h2 class="text-4xl font-black text-slate-800 mb-2 tracking-widest">
+                        ${item.word}
+                    </h2>
+                `;
+
+                card.onclick = () => handleCardClick(item, card);
+                container.appendChild(card);
+            });
+            
+            if (!isGameMode) lucide.createIcons();
+        }
+
+        // 初始化
+        window.onload = () => {
+            setMode('learn'); // 預設為學習模式
+            renderCategories();
+        };
+
+    </script>
+</body>
+</html>
