@@ -1,0 +1,592 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Volume2, Star, Trophy, ArrowLeft, Play, BookOpen, Sparkles, RotateCcw, CheckCircle, XCircle, Brain, HelpCircle, Hand } from 'lucide-react';
+
+// 配詞資料庫 (新增了 火 和 水)
+const vocabData = [
+  { id: 1, char: '門', color: 'bg-red-100', text: 'text-red-600', border: 'border-red-400', words: ['門窗', '門票', '門診', '門鈴', '門牙'] },
+  { id: 2, char: '沙', color: 'bg-orange-100', text: 'text-orange-600', border: 'border-orange-400', words: ['沙漠', '沙石', '沙包', '沙塵', '沙丁魚'] },
+  { id: 3, char: '環', color: 'bg-yellow-100', text: 'text-yellow-600', border: 'border-yellow-400', words: ['環保', '環遊', '環境', '環球', '環節'] },
+  { id: 4, char: '晴', color: 'bg-green-100', text: 'text-green-600', border: 'border-green-400', words: ['晴朗', '晴空', '晴天', '放晴', '晴雨表'] },
+  { id: 5, char: '洋', color: 'bg-blue-100', text: 'text-blue-600', border: 'border-blue-400', words: ['洋蔥', '洋裝', '汪洋', '海洋', '洋娃娃'] },
+  { id: 6, char: '護', color: 'bg-indigo-100', text: 'text-indigo-600', border: 'border-indigo-400', words: ['護理', '護送', '護膝', '保護', '護目鏡'] },
+  { id: 7, char: '老', color: 'bg-purple-100', text: 'text-purple-600', border: 'border-purple-400', words: ['老鼠', '老翁', '老虎', '老年', '老太太'] },
+  { id: 8, char: '斑', color: 'bg-pink-100', text: 'text-pink-600', border: 'border-pink-400', words: ['斑點', '斑紋', '斑馬', '斑白', '斑馬線'] },
+  { id: 9, char: '火', color: 'bg-red-50', text: 'text-red-500', border: 'border-red-300', words: ['火車', '火焰', '火鍋', '救火', '螢火蟲'] },
+  { id: 10, char: '水', color: 'bg-cyan-100', text: 'text-cyan-600', border: 'border-cyan-400', words: ['水果', '水珠', '游水', '潛水', '墨水'] },
+];
+
+export default function WordGame() {
+  const [currentView, setCurrentView] = useState('menu'); // menu, learn, game, memoryGame, connectGame, summary
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [gameScore, setGameScore] = useState(0);
+  const [gameQuestionIndex, setGameQuestionIndex] = useState(0);
+  const [gameQuestions, setGameQuestions] = useState([]);
+  
+  // Modal 相關狀態
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [resultData, setResultData] = useState(null);
+
+  // 記憶遊戲狀態
+  const [memoryCards, setMemoryCards] = useState([]);
+  const [flippedIndices, setFlippedIndices] = useState([]);
+  const [matchedIds, setMatchedIds] = useState([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // 拖動配對遊戲狀態
+  const [dragItems, setDragItems] = useState([]);     // 右邊待拖動的詞語
+  const [targetSlots, setTargetSlots] = useState([]); // 左邊的目標插槽
+  const [filledSlots, setFilledSlots] = useState({}); // { targetId: dragItem } 已填入的
+  
+  // 拖曳互動狀態
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+  const dragItemRef = useRef(null); // 記錄被拖動的原始資料
+  const containerRef = useRef(null); // 遊戲區域參照
+
+  // 廣東話發音功能
+  const speak = (text) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-HK'; 
+      utterance.rate = 0.8;
+      utterance.pitch = 1.1;
+      
+      const voices = window.speechSynthesis.getVoices();
+      const cantoneseVoice = voices.find(v => v.lang.includes('HK') || v.lang.includes('yue'));
+      if (cantoneseVoice) {
+        utterance.voice = cantoneseVoice;
+      }
+
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  // --- 遊戲邏輯: 基礎問答 ---
+  const startLearning = (category) => {
+    setSelectedCategory(category);
+    setCurrentView('learn');
+    speak(category.char);
+  };
+
+  const startGame = (category) => {
+    setSelectedCategory(category);
+    const questions = category.words.map(targetWord => {
+      const allOtherWords = vocabData
+        .filter(c => c.id !== category.id)
+        .flatMap(c => c.words);
+      const distractors = [];
+      while(distractors.length < 2) {
+        const randomWord = allOtherWords[Math.floor(Math.random() * allOtherWords.length)];
+        if (!distractors.includes(randomWord)) distractors.push(randomWord);
+      }
+      const options = [targetWord, ...distractors].sort(() => Math.random() - 0.5);
+      return { target: targetWord, options: options };
+    });
+    setGameQuestions(questions);
+    setGameQuestionIndex(0);
+    setGameScore(0);
+    setCurrentView('game');
+    setTimeout(() => speak(`邊個詞語有${category.char}字呀？`), 500);
+  };
+
+  const handleAnswer = (answer, correctAnswer) => {
+    if (showResultModal) return;
+    const isCorrect = answer === correctAnswer;
+    setResultData({ answer, isCorrect });
+    setShowResultModal(true);
+
+    if (isCorrect) {
+      setGameScore(prev => prev + 1);
+      speak(`好叻呀！你揀咗${answer}`);
+    } else {
+      speak(answer);
+    }
+
+    setTimeout(() => {
+      setShowResultModal(false);
+      setResultData(null);
+      if (gameQuestionIndex < gameQuestions.length - 1) {
+        setGameQuestionIndex(prev => prev + 1);
+        setTimeout(() => speak(`下一個，邊個有${selectedCategory.char}字？`), 500);
+      } else {
+        setCurrentView('summary');
+        speak('遊戲結束！你做得好好呀！');
+      }
+    }, 2500);
+  };
+
+  // --- 遊戲邏輯: 記憶配對 ---
+  const startMemoryGame = () => {
+    const shuffledCats = [...vocabData].sort(() => 0.5 - Math.random()).slice(0, 6);
+    let deck = [];
+    shuffledCats.forEach(cat => {
+      deck.push({ uniqueId: `char-${cat.id}`, catId: cat.id, text: cat.char, type: 'char', color: cat.color, textColor: cat.text, borderColor: cat.border });
+      const randomWord = cat.words[Math.floor(Math.random() * cat.words.length)];
+      deck.push({ uniqueId: `word-${cat.id}`, catId: cat.id, text: randomWord, type: 'word', color: 'bg-white', textColor: 'text-gray-800', borderColor: 'border-gray-300' });
+    });
+    setMemoryCards(deck.sort(() => 0.5 - Math.random()));
+    setFlippedIndices([]);
+    setMatchedIds([]);
+    setGameScore(0);
+    setIsProcessing(false);
+    setCurrentView('memoryGame');
+    speak("超級記憶挑戰，開始！找出一樣的朋友啦！");
+  };
+
+  const handleCardClick = (index) => {
+    if (isProcessing || flippedIndices.includes(index) || matchedIds.includes(memoryCards[index].catId)) return;
+    const card = memoryCards[index];
+    speak(card.text);
+    const newFlipped = [...flippedIndices, index];
+    setFlippedIndices(newFlipped);
+    if (newFlipped.length === 2) {
+      setIsProcessing(true);
+      const firstCard = memoryCards[newFlipped[0]];
+      const secondCard = memoryCards[newFlipped[1]];
+      if (firstCard.catId === secondCard.catId) {
+        setTimeout(() => {
+          speak("配對成功！");
+          setMatchedIds(prev => [...prev, firstCard.catId]);
+          setFlippedIndices([]);
+          setGameScore(prev => prev + 1);
+          setIsProcessing(false);
+        }, 1000);
+      } else {
+        setTimeout(() => {
+          setFlippedIndices([]);
+          setIsProcessing(false);
+        }, 1500);
+      }
+    }
+  };
+
+  // --- 遊戲邏輯: 拖動配對 (新 Drag and Drop) ---
+  
+  const startConnectGame = () => {
+    // 1. 選 5 個類別 (增加難度與趣味)
+    const selectedCats = [...vocabData].sort(() => 0.5 - Math.random()).slice(0, 5);
+    
+    // 2. 準備左邊的目標欄 (Targets)
+    const targets = selectedCats.map(cat => ({
+      id: cat.id,
+      char: cat.char,
+      color: cat.color,
+      text: cat.text,
+      border: cat.border
+    }));
+
+    // 3. 準備右邊的拖動項 (Draggables)
+    const draggables = selectedCats.map(cat => {
+      const randomWord = cat.words[Math.floor(Math.random() * cat.words.length)];
+      return {
+        id: `drag-${cat.id}`,
+        catId: cat.id, // 用來配對
+        text: randomWord,
+        isMatched: false
+      };
+    }).sort(() => 0.5 - Math.random()); // 打亂順序
+
+    setTargetSlots(targets);
+    setDragItems(draggables);
+    setFilledSlots({}); // 清空已填入的
+    setGameScore(0);
+    setCurrentView('connectGame');
+    speak("拖動配對遊戲，開始！將詞語拖去正確嘅字隔離啦！");
+  };
+
+  // 處理開始拖曳 (Mouse & Touch)
+  const handleDragStart = (e, item) => {
+    // 阻止預設行為 (避免選取文字等)
+    // e.preventDefault(); // 注意：在 Touch 裝置上有時這會阻止 scroll，需小心使用
+    
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    setDraggingId(item.id);
+    dragItemRef.current = item;
+    setDragPosition({ x: clientX, y: clientY });
+    
+    speak(item.text);
+  };
+
+  // 處理拖曳移動 (全域監聽)
+  useEffect(() => {
+    const handleMove = (e) => {
+      if (!draggingId) return;
+      
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      
+      setDragPosition({ x: clientX, y: clientY });
+    };
+
+    const handleEnd = (e) => {
+      if (!draggingId) return;
+      
+      // 檢查 Drop 邏輯
+      const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+      const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+      
+      // 檢查是否落在任何一個目標區域內
+      const dropTarget = targetSlots.find(target => {
+        const el = document.getElementById(`target-slot-${target.id}`);
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+      });
+
+      if (dropTarget) {
+        // 檢查是否配對正確
+        if (dropTarget.id === dragItemRef.current.catId) {
+          // 配對成功！
+          speak("答對了！");
+          setFilledSlots(prev => ({
+            ...prev,
+            [dropTarget.id]: dragItemRef.current
+          }));
+          // 修改：不再移除項目，而是標記為已配對 (isMatched: true)
+          setDragItems(prev => prev.map(item => 
+            item.id === draggingId ? { ...item, isMatched: true } : item
+          ));
+          setGameScore(prev => prev + 1);
+        } else {
+          // 配對錯誤
+          speak("唔係呢個，試下第二個？");
+        }
+      }
+
+      setDraggingId(null);
+      dragItemRef.current = null;
+    };
+
+    if (draggingId) {
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleEnd);
+      window.addEventListener('touchmove', handleMove, { passive: false });
+      window.addEventListener('touchend', handleEnd);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+  }, [draggingId, targetSlots]);
+
+
+  // --- 介面組件 ---
+
+  const MenuScreen = () => (
+    <div className="p-4 max-w-6xl mx-auto">
+      <header className="text-center mb-6">
+        <h1 className="text-4xl md:text-6xl font-black text-blue-600 mb-4 tracking-widest flex items-center justify-center gap-3 drop-shadow-sm">
+          <Sparkles className="w-12 h-12 text-yellow-400 animate-pulse" />
+          廣東話配詞樂園
+          <Sparkles className="w-12 h-12 text-yellow-400 animate-pulse" />
+        </h1>
+        <p className="text-gray-600 text-xl font-medium">K3 趣味中文學習</p>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white/60 p-6 rounded-3xl border-4 border-blue-200 shadow-sm backdrop-blur-sm">
+           <h2 className="text-2xl font-bold text-blue-800 mb-4 flex items-center gap-2">
+             <BookOpen className="w-6 h-6" /> 基礎學習區
+           </h2>
+           <div className="grid grid-cols-5 gap-3">
+              {vocabData.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => startLearning(item)}
+                  className={`${item.color} ${item.border} border-b-4 active:border-b-0 active:translate-y-1 transition-all rounded-xl p-2 aspect-square flex items-center justify-center shadow-md hover:brightness-95`}
+                >
+                  <span className={`${item.text} text-3xl md:text-4xl font-black`}>{item.char}</span>
+                </button>
+              ))}
+           </div>
+        </div>
+
+        <div className="flex flex-col gap-4">
+           <button 
+             onClick={startMemoryGame}
+             className="flex-1 min-h-[100px] bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-3xl border-4 border-purple-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all flex flex-row items-center justify-center gap-4 p-4 group"
+           >
+             <Brain className="w-12 h-12 group-hover:animate-bounce" />
+             <div className="text-left">
+                <div className="text-2xl font-bold">超級記憶配對</div>
+                <div className="text-sm opacity-90 bg-white/20 px-2 py-0.5 rounded-full inline-block mt-1">考考記憶力</div>
+             </div>
+           </button>
+
+           <button 
+             onClick={startConnectGame}
+             className="flex-1 min-h-[100px] bg-gradient-to-br from-teal-400 to-emerald-600 text-white rounded-3xl border-4 border-teal-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all flex flex-row items-center justify-center gap-4 p-4 group"
+           >
+             <Hand className="w-12 h-12 group-hover:scale-110 transition-transform duration-500" />
+             <div className="text-left">
+                <div className="text-2xl font-bold">拖動配對</div>
+                <div className="text-sm opacity-90 bg-white/20 px-2 py-0.5 rounded-full inline-block mt-1">找朋友遊戲</div>
+             </div>
+           </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 拖動配對畫面
+  const ConnectGameScreen = () => {
+    const isGameComplete = Object.keys(filledSlots).length === 5;
+
+    return (
+      <div className="flex flex-col h-full max-w-5xl mx-auto p-4 select-none" ref={containerRef}>
+        {/* Header */}
+        <div className="flex justify-between items-center mb-4">
+          <button onClick={() => setCurrentView('menu')} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-full font-bold flex items-center gap-2"><ArrowLeft /> 返回主頁</button>
+          <div className="bg-teal-100 px-4 py-2 rounded-full border-2 border-teal-300 flex items-center gap-2">
+             <span className="font-bold text-teal-700">進度：{Object.keys(filledSlots).length} / 5</span>
+          </div>
+        </div>
+
+        {isGameComplete ? (
+          <div className="flex-1 flex flex-col items-center justify-center animate-in zoom-in duration-300">
+            <Trophy className="w-40 h-40 text-yellow-400 mb-6 animate-bounce" />
+            <h2 className="text-5xl font-bold text-teal-600 mb-4">配對完成！</h2>
+            <p className="text-xl text-gray-500 mb-8">小朋友你做得好好呀！</p>
+            <button onClick={startConnectGame} className="bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-full font-bold text-xl shadow-lg flex items-center gap-2"><RotateCcw /> 再玩一次</button>
+          </div>
+        ) : (
+          <div className="flex-1 grid grid-cols-2 gap-8 md:gap-16 items-start mt-4">
+            
+            {/* 左邊：目標區 (Targets) */}
+            <div className="flex flex-col gap-4">
+               <div className="text-center text-gray-400 font-bold mb-2">字頭小屋</div>
+               {targetSlots.map(target => {
+                 const filledItem = filledSlots[target.id];
+                 return (
+                   <div 
+                     key={target.id}
+                     id={`target-slot-${target.id}`}
+                     className={`
+                       h-24 rounded-2xl border-4 flex items-center justify-between px-4 transition-all
+                       ${filledItem ? 'bg-green-50 border-green-400' : `${target.color} ${target.border}`}
+                     `}
+                   >
+                      {/* 字頭顯示 */}
+                      <div className={`
+                        w-16 h-16 rounded-xl flex items-center justify-center bg-white/50 shadow-sm
+                        ${target.text} text-4xl font-black
+                      `}>
+                        {target.char}
+                      </div>
+
+                      {/* 放置區域指示 / 已放入的項目 */}
+                      <div className="flex-1 flex justify-center">
+                        {filledItem ? (
+                          <div className="bg-white border-2 border-green-200 px-6 py-2 rounded-xl shadow-sm animate-in zoom-in">
+                            <span className="text-3xl font-bold text-green-700">{filledItem.text}</span>
+                          </div>
+                        ) : (
+                          <div className="border-2 border-dashed border-gray-400/50 rounded-xl w-32 h-14 flex items-center justify-center text-gray-400 font-bold text-sm bg-white/20">
+                            放這裡
+                          </div>
+                        )}
+                      </div>
+                   </div>
+                 );
+               })}
+            </div>
+
+            {/* 右邊：拖動區 (Source) */}
+            <div className="flex flex-col gap-4">
+               <div className="text-center text-gray-400 font-bold mb-2">詞語卡 (拖過對面)</div>
+               <div className="grid grid-cols-1 gap-4">
+                 {dragItems.map(item => (
+                   <div
+                     key={item.id}
+                     onMouseDown={(e) => !item.isMatched && handleDragStart(e, item)}
+                     onTouchStart={(e) => !item.isMatched && handleDragStart(e, item)}
+                     className={`
+                       bg-white border-b-4 border-gray-200 rounded-2xl p-4 text-center shadow-md
+                       transition-transform 
+                       ${item.isMatched 
+                         ? 'opacity-40 bg-gray-100 cursor-default border-gray-100 scale-95' // 已配對樣式：灰色、不可點擊
+                         : 'cursor-grab active:cursor-grabbing hover:scale-105 hover:bg-blue-50' // 未配對樣式：可拖動
+                       }
+                       ${draggingId === item.id ? 'opacity-0' : ''}
+                     `}
+                   >
+                     <span className={`text-3xl font-bold ${item.isMatched ? 'text-gray-400' : 'text-gray-700'}`}>{item.text}</span>
+                   </div>
+                 ))}
+                 {/* 佔位符，保持佈局高度 - 修改判斷條件 */}
+                 {dragItems.every(i => i.isMatched) && (
+                   <div className="text-center text-gray-300 py-10">全部搬完啦！</div>
+                 )}
+               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 正在拖曳的 Ghost Element (跟隨滑鼠/手指) */}
+        {draggingId && dragItemRef.current && (
+          <div 
+            className="fixed pointer-events-none z-50 bg-white/90 border-4 border-blue-400 rounded-2xl px-8 py-4 shadow-2xl transform -translate-x-1/2 -translate-y-1/2"
+            style={{ left: dragPosition.x, top: dragPosition.y }}
+          >
+            <span className="text-4xl font-bold text-blue-700">{dragItemRef.current.text}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const LearnScreen = () => (
+    <div className="flex flex-col h-full max-w-4xl mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <button onClick={() => setCurrentView('menu')} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-full font-bold flex items-center gap-2"><ArrowLeft /> 返回</button>
+        <button onClick={() => startGame(selectedCategory)} className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold flex items-center gap-2 shadow-md animate-bounce"><Play fill="currentColor" /> 開始測驗</button>
+      </div>
+      <div className="flex-1 flex flex-col items-center">
+        <div className={`${selectedCategory.color} ${selectedCategory.border} border-4 rounded-3xl p-8 mb-8 w-full text-center shadow-xl cursor-pointer active:scale-95 transition-transform`} onClick={() => speak(selectedCategory.char)}>
+          <span className={`${selectedCategory.text} text-8xl font-black block mb-2`}>{selectedCategory.char}</span>
+          <span className="text-gray-500 font-bold flex items-center justify-center gap-2"><Volume2 className="w-5 h-5" /> 點擊聽讀音</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+          {selectedCategory.words.map((word, idx) => (
+            <button key={idx} onClick={() => speak(word)} className="bg-white border-2 border-gray-200 hover:border-blue-400 rounded-xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-all group">
+              <span className="text-3xl font-bold text-gray-800 group-hover:text-blue-600">
+                {word.split('').map((char, i) => <span key={i} className={char === selectedCategory.char ? selectedCategory.text : ''}>{char}</span>)}
+              </span>
+              <Volume2 className="text-gray-400 group-hover:text-blue-500" />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const GameScreen = () => {
+    const currentQ = gameQuestions[gameQuestionIndex];
+    return (
+      <div className="flex flex-col h-full max-w-4xl mx-auto p-4 relative">
+        {showResultModal && resultData && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className={`${resultData.isCorrect ? 'bg-green-100 border-green-500' : 'bg-orange-100 border-orange-500'} border-4 rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl transform scale-110 transition-all flex flex-col items-center text-center`}>
+              {resultData.isCorrect ? <CheckCircle className="w-24 h-24 text-green-500 mb-4 animate-bounce" /> : <XCircle className="w-24 h-24 text-orange-500 mb-4 animate-pulse" />}
+              <h3 className={`text-2xl font-bold mb-2 ${resultData.isCorrect ? 'text-green-700' : 'text-orange-700'}`}>{resultData.isCorrect ? '答對了！' : '再接再厲！'}</h3>
+              <div className="text-gray-500 mb-2">你揀咗：</div>
+              <div className={`text-5xl font-black mb-4 ${resultData.isCorrect ? 'text-green-600' : 'text-orange-600'}`}>{resultData.answer}</div>
+            </div>
+          </div>
+        )}
+        <div className="flex justify-between items-center mb-8">
+          <span className="text-2xl font-bold text-gray-600">第 {gameQuestionIndex + 1} / 5 題</span>
+          <div className="flex items-center gap-2 bg-yellow-100 px-4 py-2 rounded-full border-2 border-yellow-300"><Star className="fill-yellow-400 text-yellow-400 w-6 h-6" /><span className="text-2xl font-bold text-yellow-600">{gameScore}</span></div>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-8 text-center leading-relaxed">
+            邊個詞語有 <span className={`mx-2 px-4 py-1 rounded-lg ${selectedCategory.color} ${selectedCategory.text} inline-block transform -rotate-3 border-2 ${selectedCategory.border}`}>{selectedCategory.char}</span> 字呀？
+            <button onClick={() => speak(`邊個詞語有${selectedCategory.char}字呀？`)} className="ml-3 align-middle inline-block bg-gray-100 p-2 rounded-full hover:bg-gray-200"><Volume2 className="w-6 h-6 text-blue-500" /></button>
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl">
+            {currentQ.options.map((option, idx) => (
+              <button key={idx} onClick={() => handleAnswer(option, currentQ.target)} disabled={showResultModal} className="bg-white hover:bg-blue-50 border-b-4 border-gray-200 transition-all rounded-2xl p-8 text-center shadow-lg relative group active:border-b-0 active:translate-y-1">
+                <span className="text-4xl font-bold text-gray-700 group-hover:scale-110 transition-transform block">{option}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const MemoryGameScreen = () => {
+    const isGameComplete = matchedIds.length === 6;
+
+    return (
+      <div className="flex flex-col h-full max-w-4xl mx-auto p-4">
+        <div className="flex justify-between items-center mb-4">
+          <button onClick={() => setCurrentView('menu')} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-full font-bold flex items-center gap-2"><ArrowLeft /> 返回主頁</button>
+          <div className="bg-purple-100 px-4 py-2 rounded-full border-2 border-purple-300 flex items-center gap-2">
+            <Star className="fill-yellow-400 text-yellow-400 w-5 h-5" />
+            <span className="font-bold text-purple-700">配對成功：{matchedIds.length} / 6</span>
+          </div>
+        </div>
+
+        {isGameComplete ? (
+          <div className="flex-1 flex flex-col items-center justify-center animate-in zoom-in duration-300">
+            <Trophy className="w-40 h-40 text-yellow-400 mb-6 animate-bounce" />
+            <h2 className="text-5xl font-bold text-purple-600 mb-4">全部配對成功！</h2>
+            <p className="text-xl text-gray-500 mb-8">小朋友你記憶力真係好！</p>
+            <button onClick={startMemoryGame} className="bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-full font-bold text-xl shadow-lg flex items-center gap-2"><RotateCcw /> 再玩一次</button>
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="grid grid-cols-3 md:grid-cols-4 gap-3 w-full max-w-2xl">
+              {memoryCards.map((card, idx) => {
+                const isFlipped = flippedIndices.includes(idx) || matchedIds.includes(card.catId);
+                const isMatched = matchedIds.includes(card.catId);
+
+                return (
+                  <div key={idx} className="aspect-[3/4] perspective-1000 cursor-pointer" onClick={() => handleCardClick(idx)}>
+                    <div className={`relative w-full h-full transition-all duration-500 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
+                      
+                      <div className={`absolute w-full h-full backface-hidden bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl border-4 border-blue-200 shadow-md flex items-center justify-center`}>
+                        <HelpCircle className="w-10 h-10 text-white/50" />
+                      </div>
+
+                      <div className={`absolute w-full h-full backface-hidden rotate-y-180 rounded-xl border-4 flex items-center justify-center shadow-lg p-2 text-center
+                        ${isMatched ? 'bg-green-100 border-green-400 scale-95 opacity-80' : `${card.color} ${card.borderColor}`}
+                      `}>
+                         {isMatched && <div className="absolute top-1 right-1 text-green-500"><CheckCircle className="w-5 h-5" /></div>}
+                         <span className={`font-black ${card.textColor} ${card.type === 'char' ? 'text-5xl' : 'text-2xl'}`}>
+                           {card.text}
+                         </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const SummaryScreen = () => (
+    <div className="flex flex-col items-center justify-center h-full max-w-4xl mx-auto p-4 text-center">
+      <Trophy className="w-32 h-32 text-yellow-400 mb-6 animate-bounce" />
+      <h2 className="text-5xl font-bold text-gray-800 mb-4">測驗完成！</h2>
+      <div className="flex items-center gap-2 mb-12 bg-white p-6 rounded-2xl shadow-lg border-2 border-yellow-100">
+        {[...Array(5)].map((_, i) => <Star key={i} className={`w-12 h-12 ${i < gameScore ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}`} />)}
+      </div>
+      <div className="flex gap-4">
+        <button onClick={() => setCurrentView('menu')} className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-4 rounded-full font-bold text-xl shadow-lg flex items-center gap-2"><BookOpen /> 返回主頁</button>
+        <button onClick={() => startGame(selectedCategory)} className="bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-full font-bold text-xl shadow-lg flex items-center gap-2"><RotateCcw /> 再玩一次</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 font-sans">
+      <style>{`
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+      `}</style>
+      
+      {currentView === 'menu' && <MenuScreen />}
+      {currentView === 'learn' && <LearnScreen />}
+      {currentView === 'game' && <GameScreen />}
+      {currentView === 'memoryGame' && <MemoryGameScreen />}
+      {currentView === 'connectGame' && <ConnectGameScreen />}
+      {currentView === 'summary' && <SummaryScreen />}
+      
+      <div className="fixed bottom-2 right-2 text-xs text-gray-400 pointer-events-none">K3 中文配詞教具 by AI Assistant</div>
+    </div>
+  );
+}
