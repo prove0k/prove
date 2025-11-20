@@ -10,7 +10,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* 防止點擊時出現藍色框框 */
-        button, div {
+        button, div, input {
             -webkit-tap-highlight-color: transparent;
         }
         body {
@@ -26,12 +26,50 @@
         .animate-pop {
             animation: pop 0.3s ease-in-out;
         }
+
+        /* 動態調整大小的 CSS 變數預設值 */
+        :root {
+            --emoji-size: 4.5rem;
+            --text-size: 2.25rem;
+            --emoji-display: block;
+        }
+
+        .dynamic-emoji {
+            font-size: var(--emoji-size);
+            display: var(--emoji-display);
+            line-height: 1.2;
+        }
+
+        .dynamic-text {
+            font-size: var(--text-size);
+            line-height: 1.2;
+        }
+
+        /* 自訂滑桿樣式 */
+        input[type=range] {
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            appearance: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #6366f1;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background .15s ease-in-out;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            background: #4f46e5;
+        }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen p-4">
+<body class="bg-slate-50 min-h-screen p-4 pb-20">
 
     <!-- Header & Mode Switch -->
-    <div class="max-w-5xl mx-auto mb-6 pt-4">
+    <div class="max-w-5xl mx-auto mb-4 pt-4">
         <div class="flex flex-col md:flex-row items-center justify-between gap-4">
             <!-- Title -->
             <h1 class="text-3xl md:text-4xl font-bold text-slate-800 flex items-center gap-3">
@@ -47,6 +85,35 @@
                 <button onclick="setMode('game')" id="btn-game" class="px-6 py-2 rounded-full text-lg font-bold transition-all flex items-center gap-2">
                     <i data-lucide="gamepad-2" width="20"></i> 遊戲
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Display Settings Panel -->
+    <div class="max-w-5xl mx-auto mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex flex-wrap items-center justify-center gap-4 md:gap-8">
+            <!-- Toggle Emoji -->
+            <label class="flex items-center gap-2 cursor-pointer select-none bg-slate-50 px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200">
+                <input type="checkbox" id="emoji-toggle" checked onchange="toggleEmoji(this.checked)" class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 accent-indigo-600">
+                <span class="text-slate-700 font-bold text-sm md:text-base">顯示圖案</span>
+            </label>
+            
+            <div class="h-8 w-px bg-slate-200 hidden md:block"></div>
+
+            <!-- Emoji Size Slider -->
+            <div class="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-lg border border-slate-200">
+                <span class="text-slate-500 flex items-center gap-1 text-sm md:text-base">
+                    <i data-lucide="image" width="18"></i> 圖案
+                </span>
+                <input type="range" id="emoji-size-slider" min="0" max="8" step="0.5" value="4.5" oninput="updateSizes()" class="w-24 md:w-32">
+            </div>
+
+            <!-- Text Size Slider -->
+            <div class="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-lg border border-slate-200">
+                <span class="text-slate-500 flex items-center gap-1 text-sm md:text-base">
+                    <i data-lucide="type" width="18"></i> 文字
+                </span>
+                <input type="range" id="text-size-slider" min="1.5" max="6" step="0.2" value="2.25" oninput="updateSizes()" class="w-24 md:w-32">
             </div>
         </div>
     </div>
@@ -76,7 +143,7 @@
     </div>
 
     <!-- Cards Grid -->
-    <div id="cards-container" class="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-20">
+    <div id="cards-container" class="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         <!-- 卡片將由 JavaScript 動態生成 -->
     </div>
 
@@ -90,8 +157,8 @@
     </div>
 
     <!-- Footer -->
-    <div class="text-center text-slate-400 text-sm pb-8">
-        老師小撇步：遊戲模式下，系統會自動出題，請小朋友點擊正確的卡片！
+    <div class="max-w-5xl mx-auto mt-8 text-center text-slate-400 text-sm">
+        老師小撇步：點擊「顯示圖案」開關，可以切換是否顯示圖片，增加認字難度喔！
     </div>
 
     <script>
@@ -138,14 +205,29 @@
         let isGameMode = false;
         let score = 0;
         let targetItem = null;
-        let isProcessing = false; // 防止重複點擊
+        let isProcessing = false; 
+
+        // --- 顯示設定控制 ---
+        
+        function toggleEmoji(isChecked) {
+            const root = document.documentElement;
+            root.style.setProperty('--emoji-display', isChecked ? 'block' : 'none');
+        }
+
+        function updateSizes() {
+            const emojiSize = document.getElementById('emoji-size-slider').value;
+            const textSize = document.getElementById('text-size-slider').value;
+            
+            const root = document.documentElement;
+            root.style.setProperty('--emoji-size', `${emojiSize}rem`);
+            root.style.setProperty('--text-size', `${textSize}rem`);
+        }
 
         // --- 核心功能 ---
 
         function setMode(mode) {
             isGameMode = (mode === 'game');
             
-            // 更新按鈕樣式
             const btnLearn = document.getElementById('btn-learn');
             const btnGame = document.getElementById('btn-game');
             const activeClass = "bg-indigo-500 text-white shadow-md";
@@ -164,17 +246,17 @@
                 btnLearn.className = "px-6 py-2 rounded-full text-lg font-bold transition-all flex items-center gap-2 " + activeClass;
                 
                 document.getElementById('game-bar').classList.add('hidden');
-                window.speechSynthesis.cancel(); // 停止發音
+                window.speechSynthesis.cancel();
             }
 
-            renderCards(); // 重新渲染卡片以更新點擊事件
+            renderCards();
         }
 
         function speak(text, callback) {
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'zh-HK';
-            utterance.rate = 0.85; // 廣東話語速
+            utterance.rate = 0.85;
             if (callback) {
                 utterance.onend = callback;
             }
@@ -192,15 +274,9 @@
         function startNewRound() {
             const items = getFilteredData();
             if (items.length === 0) return;
-
-            // 隨機選擇一個單字
             const randomIndex = Math.floor(Math.random() * items.length);
             targetItem = items[randomIndex];
-            
-            // 更新提示文字
             document.getElementById('game-instruction').innerText = `請找出...`;
-            
-            // 延遲一點點再說話
             setTimeout(() => {
                 repeatQuestion();
             }, 500);
@@ -215,20 +291,17 @@
             if (isProcessing) return;
 
             if (!isGameMode) {
-                // 學習模式：直接發音
                 animateCard(cardElement, 'animate-pop');
                 speak(item.word);
                 return;
             }
 
-            // 遊戲模式邏輯
             if (item.id === targetItem.id) {
-                // --- 答對了 ---
+                // 答對
                 isProcessing = true;
                 score++;
                 updateScore();
                 
-                // 設定成功彈窗內容
                 const icon = document.getElementById('feedback-icon');
                 const title = document.getElementById('feedback-title');
                 const subtitle = document.getElementById('feedback-subtitle');
@@ -236,10 +309,9 @@
                 icon.innerHTML = "🎉";
                 title.innerHTML = "好棒！";
                 title.className = "text-5xl font-bold mb-2 text-indigo-600";
-                subtitle.innerHTML = ""; // 清空副標題
+                subtitle.innerHTML = "";
 
                 showFeedback();
-                
                 speak("好叻！答啱喇！", () => { 
                     setTimeout(() => {
                         hideFeedback();
@@ -249,28 +321,23 @@
                 });
 
             } else {
-                // --- 答錯了 ---
-                isProcessing = true; // 鎖定，避免重複點擊
-                
-                // 設定錯誤彈窗內容
+                // 答錯
+                isProcessing = true;
                 const icon = document.getElementById('feedback-icon');
                 const title = document.getElementById('feedback-title');
                 const subtitle = document.getElementById('feedback-subtitle');
                 
-                // 顯示選錯的那個字的圖案和文字
                 icon.innerHTML = item.emoji;
                 title.innerHTML = "你選錯了";
-                title.className = "text-5xl font-bold mb-2 text-red-500"; // 紅色字體
-                subtitle.innerHTML = `這是 <b>${item.word}</b>`; // 顯示這是什麼字
+                title.className = "text-5xl font-bold mb-2 text-red-500";
+                subtitle.innerHTML = `這是 <b>${item.word}</b>`;
 
                 showFeedback();
-
-                // 語音提示：你選錯了，這是 XX
                 speak(`你選錯了，這是 ${item.word}`, () => {
                     setTimeout(() => {
                         hideFeedback();
-                        isProcessing = false; // 解鎖
-                    }, 1500); // 稍微停留久一點讓小朋友看清楚
+                        isProcessing = false;
+                    }, 1500);
                 });
             }
         }
@@ -281,7 +348,7 @@
 
         function animateCard(element, animationClass) {
             element.classList.remove(animationClass);
-            void element.offsetWidth; // 觸發 reflow
+            void element.offsetWidth;
             element.classList.add(animationClass);
         }
 
@@ -290,7 +357,6 @@
         function showFeedback() {
             const overlay = document.getElementById('feedback-overlay');
             const content = document.getElementById('feedback-content');
-            
             overlay.classList.remove('opacity-0');
             content.classList.remove('scale-0');
             content.classList.add('scale-100');
@@ -299,7 +365,6 @@
         function hideFeedback() {
             const overlay = document.getElementById('feedback-overlay');
             const content = document.getElementById('feedback-content');
-            
             overlay.classList.add('opacity-0');
             content.classList.remove('scale-100');
             content.classList.add('scale-0');
@@ -312,7 +377,6 @@
             categories.forEach(cat => {
                 const btn = document.createElement('button');
                 const isActive = currentCategory === cat.id;
-                
                 let classes = "flex items-center gap-2 px-4 py-2 rounded-full text-base font-bold transition-all transform hover:scale-105 shadow-sm border ";
                 if (isActive) {
                     classes += "bg-indigo-100 text-indigo-700 border-indigo-200 shadow-indigo-100";
@@ -320,9 +384,7 @@
                     classes += "bg-white text-slate-500 border-transparent hover:bg-indigo-50";
                 }
                 btn.className = classes;
-                
                 btn.innerHTML = `<i data-lucide="${cat.icon}" width="18" height="18"></i> ${cat.name}`;
-                
                 btn.onclick = () => {
                     currentCategory = cat.id;
                     renderCategories();
@@ -330,10 +392,9 @@
                     if (isGameMode) {
                         score = 0;
                         updateScore();
-                        startNewRound(); // 切換分類時重新出題
+                        startNewRound();
                     }
                 };
-
                 container.appendChild(btn);
             });
             lucide.createIcons();
@@ -342,19 +403,17 @@
         function renderCards() {
             const container = document.getElementById('cards-container');
             container.innerHTML = '';
-
             const items = getFilteredData();
 
             items.forEach(item => {
                 const card = document.createElement('div');
                 
-                // 基本樣式
                 let cardClasses = `
                     ${item.color} 
                     relative cursor-pointer rounded-3xl p-6 
                     flex flex-col items-center justify-center 
                     shadow-md transition-all duration-200 transform border-4 border-white
-                    select-none
+                    select-none min-h-[200px]
                 `;
 
                 if (!isGameMode) {
@@ -366,19 +425,17 @@
                 card.className = cardClasses;
 
                 card.innerHTML = `
-                    <!-- Sound Icon Hint (隱藏於遊戲模式以減少干擾) -->
                     ${!isGameMode ? `
                     <div class="absolute top-4 right-4 text-slate-400 group-hover:text-indigo-600 transition-colors">
                         <i data-lucide="volume-2" width="24" height="24"></i>
                     </div>` : ''}
 
-                    <!-- Image/Emoji -->
-                    <div class="text-7xl mb-4 filter drop-shadow-sm ${!isGameMode ? 'transform group-hover:scale-110 transition-transform duration-300' : ''}">
+                    <!-- Dynamic classes control size and display -->
+                    <div class="dynamic-emoji mb-4 filter drop-shadow-sm ${!isGameMode ? 'transform group-hover:scale-110 transition-transform duration-300' : ''}">
                         ${item.emoji}
                     </div>
 
-                    <!-- Word -->
-                    <h2 class="text-4xl font-black text-slate-800 mb-2 tracking-widest">
+                    <h2 class="dynamic-text font-black text-slate-800 mb-2 tracking-widest">
                         ${item.word}
                     </h2>
                 `;
@@ -392,8 +449,9 @@
 
         // 初始化
         window.onload = () => {
-            setMode('learn'); // 預設為學習模式
+            setMode('learn');
             renderCategories();
+            updateSizes(); // 確保初始大小正確
         };
 
     </script>
