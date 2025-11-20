@@ -73,6 +73,8 @@
         .pop {
             animation: pop 0.3s ease-out;
         }
+        
+        /* Game Card Styles */
         .game-card {
             cursor: pointer;
             transition: all 0.2s;
@@ -93,6 +95,22 @@
         .game-card.wrong {
             border-color: #ef4444;
             background-color: #fee2e2;
+        }
+        .game-card.correct-highlight {
+            border-color: #22c55e !important;
+            background-color: #dcfce7 !important;
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+        }
+
+        /* Speaker Button Pulse */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        .pulse-btn {
+            animation: pulse-ring 2s infinite;
         }
         
         /* Toggle Switch */
@@ -147,14 +165,17 @@
                     <h1 class="text-2xl md:text-3xl font-bold text-blue-600 tracking-wider">K1 快樂學英語</h1>
                 </div>
                 
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 flex-wrap justify-center">
                     <!-- Mode Switcher -->
                     <div class="flex bg-gray-100 p-1 rounded-full shadow-inner">
-                        <button onclick="switchMode('learn')" id="btn-learn" class="mode-btn active px-4 md:px-6 py-2 rounded-full font-bold text-lg transition-all flex items-center gap-2">
+                        <button onclick="switchMode('learn')" id="btn-learn" class="mode-btn active px-4 md:px-5 py-2 rounded-full font-bold text-lg transition-all flex items-center gap-2">
                             <span>📖</span> <span class="hidden md:inline">學習</span>
                         </button>
-                        <button onclick="switchMode('game')" id="btn-game" class="mode-btn px-4 md:px-6 py-2 rounded-full font-bold text-lg transition-all flex items-center gap-2">
-                            <span>🎮</span> <span class="hidden md:inline">遊戲</span>
+                        <button onclick="switchMode('game')" id="btn-game" class="mode-btn px-4 md:px-5 py-2 rounded-full font-bold text-lg transition-all flex items-center gap-2">
+                            <span>🎮</span> <span class="hidden md:inline">配對</span>
+                        </button>
+                        <button onclick="switchMode('listen')" id="btn-listen" class="mode-btn px-4 md:px-5 py-2 rounded-full font-bold text-lg transition-all flex items-center gap-2">
+                            <span>👂</span> <span class="hidden md:inline">聽力</span>
                         </button>
                     </div>
 
@@ -184,7 +205,7 @@
             </div>
         </div>
 
-        <!-- GAME VIEW (Hidden by default) -->
+        <!-- PAIRING GAME VIEW -->
         <div id="game-view" class="hidden">
             <div class="text-center mb-8">
                 <div class="inline-block bg-white px-8 py-4 rounded-3xl shadow-lg border-4 border-indigo-200">
@@ -206,6 +227,48 @@
                 <button onclick="initGame()" class="bg-yellow-400 hover:bg-yellow-500 text-white text-xl px-8 py-4 rounded-full font-bold shadow-lg transition transform hover:scale-110 border-b-4 border-yellow-600 active:border-b-0 active:translate-y-1">
                     再來一局 ➜
                 </button>
+            </div>
+        </div>
+
+        <!-- LISTENING GAME VIEW (New) -->
+        <div id="listen-view" class="hidden">
+            <div class="max-w-2xl mx-auto text-center">
+                
+                <!-- Controls for Listen Mode -->
+                <div class="flex justify-center gap-4 mb-6">
+                    <label class="inline-flex items-center cursor-pointer bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200 hover:bg-gray-50 transition select-none">
+                        <input type="checkbox" id="chk-show-text" class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500" checked onchange="toggleListenDisplay()">
+                        <span class="ml-2 text-gray-700 font-bold">顯示單字</span>
+                    </label>
+                    <label class="inline-flex items-center cursor-pointer bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200 hover:bg-gray-50 transition select-none">
+                        <input type="checkbox" id="chk-show-icon" class="w-5 h-5 text-green-600 rounded focus:ring-green-500" checked onchange="toggleListenDisplay()">
+                        <span class="ml-2 text-gray-700 font-bold">顯示圖片</span>
+                    </label>
+                </div>
+
+                <!-- Question Area -->
+                <div class="bg-white rounded-3xl p-8 shadow-xl border-b-8 border-blue-200 mb-8 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-2 bg-blue-400"></div>
+                    
+                    <h2 class="text-2xl font-bold text-gray-600 mb-6">仔細聽，這是什麼？</h2>
+                    
+                    <button onclick="playTargetSound()" class="w-32 h-32 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg flex items-center justify-center mx-auto transition transform active:scale-95 pulse-btn mb-4">
+                        <span class="text-6xl">🔊</span>
+                    </button>
+                    
+                    <p class="text-sm text-gray-400">點擊喇叭再聽一次</p>
+                </div>
+
+                <!-- Options Grid -->
+                <div id="listen-options" class="grid grid-cols-3 gap-4 md:gap-8">
+                    <!-- Options injected by JS -->
+                </div>
+                
+                <!-- Listen Game Feedback Area -->
+                <div id="listen-feedback" class="mt-8 h-16">
+                    <!-- Feedback messages appear here -->
+                </div>
+
             </div>
         </div>
 
@@ -382,115 +445,7 @@
                 root.style.setProperty('--scale-text', value);
             }
         }
-
-        // --- Learning View Logic ---
-
-        function renderLearnApp() {
-            const container = document.getElementById('card-container');
-            const nav = document.getElementById('nav-buttons');
-            container.innerHTML = ''; // Clear previous
-            nav.innerHTML = ''; // Clear previous
-            
-            // 1. Add "ALL" Button
-            const allBtn = document.createElement('button');
-            allBtn.className = `nav-btn w-12 h-10 rounded-full font-bold text-sm border-2 border-gray-300 bg-white hover:bg-gray-100 text-gray-600 flex-shrink-0 shadow-sm transition-all active:scale-95 ring-2 ring-blue-400 ring-offset-2 transform scale-110`; // Default active
-            allBtn.innerText = 'ALL';
-            allBtn.dataset.letter = 'ALL';
-            allBtn.onclick = () => filterCards('ALL');
-            nav.appendChild(allBtn);
-            
-            letters.forEach(data => {
-                // Navigation Buttons
-                const navBtn = document.createElement('button');
-                navBtn.className = `nav-btn w-10 h-10 rounded-full font-bold text-lg border-2 ${data.color.replace('bg-', 'border-').replace('text-', 'text-')} bg-white hover:bg-gray-50 flex-shrink-0 shadow-sm transition-all active:scale-95`;
-                navBtn.innerText = data.letter;
-                navBtn.dataset.letter = data.letter;
-                navBtn.onclick = () => filterCards(data.letter);
-                nav.appendChild(navBtn);
-
-                // Main Cards
-                const card = document.createElement('div');
-                card.id = `section-${data.letter}`;
-                card.dataset.letter = data.letter;
-                // Add 'letter-section' class for filtering
-                card.className = `letter-section rounded-3xl border-4 ${data.color.replace('bg-', 'border-').split(' ')[1]} bg-white shadow-xl overflow-hidden fade-in`;
-
-                // Card Header
-                const header = document.createElement('div');
-                header.className = `${data.color} p-4 text-center cursor-pointer transition hover:brightness-95`;
-                header.onclick = () => speak(`${data.letter}, ${data.lower}, ${data.letter}`);
-                header.innerHTML = `
-                    <div class="text-6xl font-black tracking-widest drop-shadow-sm inline-block floating">
-                        ${data.letter}${data.lower}
-                    </div>
-                    <div class="text-sm font-bold opacity-70 mt-1">點擊聽發音</div>
-                `;
-                card.appendChild(header);
-
-                // Items Grid
-                const grid = document.createElement('div');
-                grid.className = "p-4 grid grid-cols-3 gap-4";
-
-                data.items.forEach(item => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = "flex flex-col items-center justify-center p-2 rounded-xl bg-gray-50 border-2 border-gray-100 card-hover cursor-pointer h-full";
-                    itemDiv.onclick = () => speak(item.word);
-                    
-                    // Changed: Use dynamic-icon and dynamic-text classes instead of fixed tailwind sizes
-                    itemDiv.innerHTML = `
-                        <div class="mb-2 item-icon dynamic-icon">${item.icon}</div>
-                        <div class="font-bold text-gray-700 capitalize select-none dynamic-text">${item.word}</div>
-                        <div class="text-xs text-gray-400 font-medium">${item.zh}</div>
-                    `;
-                    grid.appendChild(itemDiv);
-                });
-
-                card.appendChild(grid);
-                container.appendChild(card);
-            });
-        }
-
-        function filterCards(filter) {
-            const sections = document.querySelectorAll('.letter-section');
-            const buttons = document.querySelectorAll('.nav-btn');
-
-            // 1. Update Cards Visibility
-            sections.forEach(sec => {
-                if (filter === 'ALL' || sec.dataset.letter === filter) {
-                    sec.classList.remove('hidden');
-                    sec.classList.add('fade-in');
-                } else {
-                    sec.classList.add('hidden');
-                    sec.classList.remove('fade-in');
-                }
-            });
-
-            // 2. Update Buttons Active State
-            buttons.forEach(btn => {
-                if (btn.dataset.letter === filter) {
-                    btn.classList.add('ring-2', 'ring-offset-2', 'ring-blue-400', 'scale-110');
-                } else {
-                    btn.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-400', 'scale-110');
-                }
-            });
-            
-            if (filter !== 'ALL') {
-                const letterData = letters.find(l => l.letter === filter);
-                if (letterData) {
-                    speak(`${letterData.letter}`);
-                }
-            }
-        }
-
-        // --- Game Logic ---
-
-        let gameState = {
-            selectedCard: null,
-            matchesFound: 0,
-            totalPairs: 4,
-            isLocked: false
-        };
-
+        
         function getAllItems() {
             let allItems = [];
             letters.forEach(l => {
@@ -509,6 +464,106 @@
             return array;
         }
 
+        // --- Learning View Logic ---
+
+        function renderLearnApp() {
+            const container = document.getElementById('card-container');
+            const nav = document.getElementById('nav-buttons');
+            container.innerHTML = ''; // Clear previous
+            nav.innerHTML = ''; // Clear previous
+            
+            // 1. Add "ALL" Button
+            const allBtn = document.createElement('button');
+            allBtn.className = `nav-btn w-12 h-10 rounded-full font-bold text-sm border-2 border-gray-300 bg-white hover:bg-gray-100 text-gray-600 flex-shrink-0 shadow-sm transition-all active:scale-95 ring-2 ring-blue-400 ring-offset-2 transform scale-110`; // Default active
+            allBtn.innerText = 'ALL';
+            allBtn.dataset.letter = 'ALL';
+            allBtn.onclick = () => filterCards('ALL');
+            nav.appendChild(allBtn);
+            
+            letters.forEach(data => {
+                const navBtn = document.createElement('button');
+                navBtn.className = `nav-btn w-10 h-10 rounded-full font-bold text-lg border-2 ${data.color.replace('bg-', 'border-').replace('text-', 'text-')} bg-white hover:bg-gray-50 flex-shrink-0 shadow-sm transition-all active:scale-95`;
+                navBtn.innerText = data.letter;
+                navBtn.dataset.letter = data.letter;
+                navBtn.onclick = () => filterCards(data.letter);
+                nav.appendChild(navBtn);
+
+                const card = document.createElement('div');
+                card.id = `section-${data.letter}`;
+                card.dataset.letter = data.letter;
+                card.className = `letter-section rounded-3xl border-4 ${data.color.replace('bg-', 'border-').split(' ')[1]} bg-white shadow-xl overflow-hidden fade-in`;
+
+                const header = document.createElement('div');
+                header.className = `${data.color} p-4 text-center cursor-pointer transition hover:brightness-95`;
+                header.onclick = () => speak(`${data.letter}, ${data.lower}, ${data.letter}`);
+                header.innerHTML = `
+                    <div class="text-6xl font-black tracking-widest drop-shadow-sm inline-block floating">
+                        ${data.letter}${data.lower}
+                    </div>
+                    <div class="text-sm font-bold opacity-70 mt-1">點擊聽發音</div>
+                `;
+                card.appendChild(header);
+
+                const grid = document.createElement('div');
+                grid.className = "p-4 grid grid-cols-3 gap-4";
+
+                data.items.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = "flex flex-col items-center justify-center p-2 rounded-xl bg-gray-50 border-2 border-gray-100 card-hover cursor-pointer h-full";
+                    itemDiv.onclick = () => speak(item.word);
+                    
+                    itemDiv.innerHTML = `
+                        <div class="mb-2 item-icon dynamic-icon">${item.icon}</div>
+                        <div class="font-bold text-gray-700 capitalize select-none dynamic-text">${item.word}</div>
+                        <div class="text-xs text-gray-400 font-medium">${item.zh}</div>
+                    `;
+                    grid.appendChild(itemDiv);
+                });
+
+                card.appendChild(grid);
+                container.appendChild(card);
+            });
+        }
+
+        function filterCards(filter) {
+            const sections = document.querySelectorAll('.letter-section');
+            const buttons = document.querySelectorAll('.nav-btn');
+
+            sections.forEach(sec => {
+                if (filter === 'ALL' || sec.dataset.letter === filter) {
+                    sec.classList.remove('hidden');
+                    sec.classList.add('fade-in');
+                } else {
+                    sec.classList.add('hidden');
+                    sec.classList.remove('fade-in');
+                }
+            });
+
+            buttons.forEach(btn => {
+                if (btn.dataset.letter === filter) {
+                    btn.classList.add('ring-2', 'ring-offset-2', 'ring-blue-400', 'scale-110');
+                } else {
+                    btn.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-400', 'scale-110');
+                }
+            });
+            
+            if (filter !== 'ALL') {
+                const letterData = letters.find(l => l.letter === filter);
+                if (letterData) {
+                    speak(`${letterData.letter}`);
+                }
+            }
+        }
+
+        // --- Pairing Game Logic ---
+
+        let gameState = {
+            selectedCard: null,
+            matchesFound: 0,
+            totalPairs: 4,
+            isLocked: false
+        };
+
         function initGame() {
             const grid = document.getElementById('game-grid');
             const gameOverDiv = document.getElementById('game-over');
@@ -520,13 +575,11 @@
             gameState.isLocked = false;
             document.getElementById('score').innerText = '0';
 
-            // Pick 4 random distinct items
             const allItems = getAllItems();
             const shuffledItems = shuffle(allItems).slice(0, gameState.totalPairs);
             
             let gameCards = [];
             shuffledItems.forEach(item => {
-                // Text Card - Apply dynamic-text class
                 gameCards.push({
                     id: item.word,
                     type: 'text',
@@ -534,7 +587,6 @@
                     display: `<span class="font-bold text-indigo-600 capitalize dynamic-text">${item.word}</span>`,
                     rawWord: item.word
                 });
-                // Icon Card - Apply dynamic-icon class
                 gameCards.push({
                     id: item.word,
                     type: 'icon',
@@ -548,7 +600,6 @@
 
             gameCards.forEach(cardData => {
                 const cardEl = document.createElement('div');
-                // Removed fixed h-32/h-40 to allow dynamic sizing to expand the card if needed
                 cardEl.className = 'game-card bg-white border-b-4 border-gray-200 rounded-2xl min-h-[8rem] p-2 flex items-center justify-center shadow-md active:scale-95 overflow-hidden';
                 cardEl.dataset.id = cardData.id;
                 cardEl.dataset.word = cardData.rawWord;
@@ -611,33 +662,167 @@
             }
         }
 
+        // --- Listening Game Logic (NEW) ---
+        
+        let listenState = {
+            target: null,
+            isLocked: false
+        };
+
+        function toggleListenDisplay() {
+            const showText = document.getElementById('chk-show-text').checked;
+            const showIcon = document.getElementById('chk-show-icon').checked;
+            
+            const icons = document.querySelectorAll('.listen-icon');
+            const texts = document.querySelectorAll('.listen-text');
+            
+            icons.forEach(el => {
+                if(showIcon) el.classList.remove('hidden');
+                else el.classList.add('hidden');
+            });
+            
+            texts.forEach(el => {
+                if(showText) {
+                    el.classList.remove('opacity-0');
+                    el.classList.remove('invisible');
+                } else {
+                    // Only hide if not already answered correctly (which reveals it)
+                    // But for simplicity, we just follow the toggle unless locked?
+                    // Let's strict follow toggle, but 'checkListeningAnswer' might force reveal.
+                    // Actually, if I uncheck 'Show Text', it should hide even if previously revealed? 
+                    // Let's keep it simple: Toggle affects visibility directly.
+                    el.classList.add('invisible'); 
+                }
+            });
+        }
+
+        function initListeningGame() {
+            const feedbackDiv = document.getElementById('listen-feedback');
+            const optionsDiv = document.getElementById('listen-options');
+            feedbackDiv.innerHTML = ''; // clear previous feedback
+            
+            // Get current toggle states
+            const showText = document.getElementById('chk-show-text').checked;
+            const showIcon = document.getElementById('chk-show-icon').checked;
+
+            // 1. Pick random target
+            const allItems = getAllItems();
+            const target = allItems[Math.floor(Math.random() * allItems.length)];
+            listenState.target = target;
+            listenState.isLocked = false;
+
+            // 2. Pick 2 distractors (ensure unique)
+            let distractors = [];
+            while (distractors.length < 2) {
+                let d = allItems[Math.floor(Math.random() * allItems.length)];
+                if (d.word !== target.word && !distractors.find(x => x.word === d.word)) {
+                    distractors.push(d);
+                }
+            }
+
+            // 3. Combine and Shuffle
+            const options = shuffle([target, ...distractors]);
+
+            // 4. Render
+            optionsDiv.innerHTML = '';
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'bg-white border-4 border-gray-100 rounded-2xl p-4 flex flex-col items-center justify-center shadow-md hover:border-blue-200 transition transform active:scale-95 h-32 md:h-40';
+                
+                // Visibility classes based on checkboxes
+                const iconClass = showIcon ? '' : 'hidden';
+                // For text: if showText is true, we show it. If false, we use 'invisible' (takes up space but not seen)
+                const textClass = showText ? '' : 'invisible';
+
+                btn.innerHTML = `
+                    <div class="text-5xl item-icon dynamic-icon mb-2 listen-icon ${iconClass}">${opt.icon}</div>
+                    <div class="text-gray-400 text-2xl md:text-3xl font-bold capitalize dynamic-text listen-text ${textClass}">${opt.word}</div>
+                `;
+                btn.onclick = () => checkListeningAnswer(opt, btn);
+                optionsDiv.appendChild(btn);
+            });
+
+            // 5. Auto play sound after brief delay
+            setTimeout(() => playTargetSound(), 600);
+        }
+
+        function playTargetSound() {
+            if (listenState.target) {
+                speak(listenState.target.word);
+            }
+        }
+
+        function checkListeningAnswer(selected, btnElement) {
+            if (listenState.isLocked) return;
+
+            const feedbackDiv = document.getElementById('listen-feedback');
+            const textEl = btnElement.querySelector('.listen-text');
+
+            if (selected.word === listenState.target.word) {
+                // Correct
+                listenState.isLocked = true;
+                btnElement.classList.add('correct-highlight', 'pop');
+                
+                // Always reveal text on correct answer (remove invisible/opacity issues)
+                textEl.classList.remove('invisible', 'opacity-0');
+                textEl.classList.add('text-green-600');
+
+                feedbackDiv.innerHTML = `
+                    <div class="text-green-500 font-bold text-xl flex items-center justify-center gap-2 animate-bounce">
+                        <span>🎉</span> Yes! It's a ${selected.word}!
+                    </div>
+                `;
+                speak("Yes! " + selected.word + ". Great job!");
+
+                setTimeout(() => {
+                    initListeningGame();
+                }, 2500);
+
+            } else {
+                // Wrong
+                btnElement.classList.add('wrong', 'shake');
+                feedbackDiv.innerHTML = `<div class="text-red-400 font-bold text-lg">Try again!</div>`;
+                speak("Oops, try again!");
+                
+                setTimeout(() => {
+                    btnElement.classList.remove('wrong', 'shake');
+                    feedbackDiv.innerHTML = '';
+                }, 1000);
+            }
+        }
+
         // --- UI Switching ---
 
         function switchMode(mode) {
             const learnView = document.getElementById('learn-view');
             const gameView = document.getElementById('game-view');
+            const listenView = document.getElementById('listen-view');
+            
             const btnLearn = document.getElementById('btn-learn');
             const btnGame = document.getElementById('btn-game');
+            const btnListen = document.getElementById('btn-listen');
+            
             const navBar = document.getElementById('nav-bar-container');
+
+            // Reset All
+            [learnView, gameView, listenView].forEach(v => v.classList.add('hidden'));
+            [btnLearn, btnGame, btnListen].forEach(b => b.classList.remove('active'));
+            navBar.classList.add('hidden'); // Default hide
 
             if (mode === 'learn') {
                 learnView.classList.remove('hidden');
-                gameView.classList.add('hidden');
                 btnLearn.classList.add('active');
-                btnGame.classList.remove('active');
+                navBar.classList.remove('hidden');
                 navBar.style.height = 'auto';
                 navBar.style.opacity = '1';
-                navBar.classList.remove('hidden');
-            } else {
-                learnView.classList.add('hidden');
+            } else if (mode === 'game') {
                 gameView.classList.remove('hidden');
-                btnLearn.classList.remove('active');
                 btnGame.classList.add('active');
-                navBar.style.height = '0';
-                navBar.style.opacity = '0';
-                setTimeout(() => navBar.classList.add('hidden'), 300);
-                
                 initGame();
+            } else if (mode === 'listen') {
+                listenView.classList.remove('hidden');
+                btnListen.classList.add('active');
+                initListeningGame();
             }
         }
 
