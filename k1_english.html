@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>K1 快樂學英語 A-H</title>
+    <title>K1 快樂學英語 A-I</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
     <style>
@@ -113,6 +113,45 @@
             animation: pulse-ring 2s infinite;
         }
         
+        /* Memory Card Flip Styles */
+        .memory-card-inner {
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .memory-card.flipped .memory-card-inner {
+            transform: rotateY(180deg);
+        }
+        .memory-card.matched .memory-card-inner {
+            transform: rotateY(180deg);
+        }
+        .memory-front, .memory-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .memory-front {
+            background-color: white;
+            transform: rotateY(180deg);
+            border: 4px solid #f9a8d4; /* Pink-300 border */
+        }
+        .memory-back {
+            background-color: #fce7f3; /* Pink-100 background (Light Pink) */
+            background-image: none; /* Removed stripes */
+            border: 4px solid #f9a8d4; /* Pink-300 border matching front */
+            color: #db2777; /* Dark Pink question mark */
+            font-size: 3rem;
+        }
+        
         /* Toggle Switch */
         .mode-btn.active {
             background-color: #3b82f6;
@@ -167,15 +206,18 @@
                 
                 <div class="flex items-center gap-3 flex-wrap justify-center">
                     <!-- Mode Switcher -->
-                    <div class="flex bg-gray-100 p-1 rounded-full shadow-inner">
-                        <button onclick="switchMode('learn')" id="btn-learn" class="mode-btn active px-4 md:px-5 py-2 rounded-full font-bold text-lg transition-all flex items-center gap-2">
+                    <div class="flex bg-gray-100 p-1 rounded-full shadow-inner overflow-x-auto max-w-[300px] md:max-w-none">
+                        <button onclick="switchMode('learn')" id="btn-learn" class="mode-btn active px-3 md:px-5 py-2 rounded-full font-bold text-lg transition-all flex items-center gap-1 md:gap-2 flex-shrink-0">
                             <span>📖</span> <span class="hidden md:inline">學習</span>
                         </button>
-                        <button onclick="switchMode('game')" id="btn-game" class="mode-btn px-4 md:px-5 py-2 rounded-full font-bold text-lg transition-all flex items-center gap-2">
+                        <button onclick="switchMode('game')" id="btn-game" class="mode-btn px-3 md:px-5 py-2 rounded-full font-bold text-lg transition-all flex items-center gap-1 md:gap-2 flex-shrink-0">
                             <span>🎮</span> <span class="hidden md:inline">配對</span>
                         </button>
-                        <button onclick="switchMode('listen')" id="btn-listen" class="mode-btn px-4 md:px-5 py-2 rounded-full font-bold text-lg transition-all flex items-center gap-2">
+                        <button onclick="switchMode('listen')" id="btn-listen" class="mode-btn px-3 md:px-5 py-2 rounded-full font-bold text-lg transition-all flex items-center gap-1 md:gap-2 flex-shrink-0">
                             <span>👂</span> <span class="hidden md:inline">聽力</span>
+                        </button>
+                        <button onclick="switchMode('memory')" id="btn-memory" class="mode-btn px-3 md:px-5 py-2 rounded-full font-bold text-lg transition-all flex items-center gap-1 md:gap-2 flex-shrink-0">
+                            <span>🧠</span> <span class="hidden md:inline">記憶</span>
                         </button>
                     </div>
 
@@ -230,7 +272,7 @@
             </div>
         </div>
 
-        <!-- LISTENING GAME VIEW (New) -->
+        <!-- LISTENING GAME VIEW -->
         <div id="listen-view" class="hidden">
             <div class="max-w-2xl mx-auto text-center">
                 
@@ -269,6 +311,31 @@
                     <!-- Feedback messages appear here -->
                 </div>
 
+            </div>
+        </div>
+
+        <!-- MEMORY GAME VIEW (New: Replaced Quiz) -->
+        <div id="memory-view" class="hidden">
+            <div class="text-center mb-8">
+                <div class="inline-block bg-white px-8 py-4 rounded-3xl shadow-lg border-4 border-pink-200">
+                    <h2 class="text-2xl font-bold text-pink-600 mb-2">記憶大挑戰</h2>
+                    <p class="text-gray-500">翻開卡片，找出配對的圖案和文字！</p>
+                    <div class="mt-4 flex justify-center gap-4 text-xl font-bold">
+                        <div class="text-blue-500">配對數: <span id="memory-score">0</span> / 4</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="memory-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto perspective-1000">
+                <!-- Memory cards will be injected here -->
+            </div>
+
+            <div id="memory-game-over" class="hidden text-center mt-8">
+                <div class="text-6xl mb-4 animate-bounce">🏆</div>
+                <h3 class="text-3xl font-bold text-pink-600 mb-4">太厲害了！記憶力超強！</h3>
+                <button onclick="initMemoryGame()" class="bg-yellow-400 hover:bg-yellow-500 text-white text-xl px-8 py-4 rounded-full font-bold shadow-lg transition transform hover:scale-110 border-b-4 border-yellow-600 active:border-b-0 active:translate-y-1">
+                    再來一局 ➜
+                </button>
             </div>
         </div>
 
@@ -410,6 +477,16 @@
                     { word: 'head', zh: '頭', icon: '🗣️' },
                     { word: 'happy', zh: '快樂', icon: '😄' }
                 ]
+            },
+            {
+                letter: 'I',
+                lower: 'i',
+                color: 'bg-indigo-100 border-indigo-300 text-indigo-600',
+                items: [
+                    { word: 'ice-cream', zh: '冰淇淋', icon: '🍦' },
+                    { word: 'ink', zh: '墨水', icon: '✒️' },
+                    { word: 'insect', zh: '昆蟲', icon: '🐞' }
+                ]
             }
         ];
 
@@ -450,7 +527,7 @@
             let allItems = [];
             letters.forEach(l => {
                 l.items.forEach(item => {
-                    allItems.push({...item, id: item.word}); 
+                    allItems.push({...item, id: item.word, letter: l.letter}); 
                 });
             });
             return allItems;
@@ -662,7 +739,7 @@
             }
         }
 
-        // --- Listening Game Logic (NEW) ---
+        // --- Listening Game Logic ---
         
         let listenState = {
             target: null,
@@ -686,11 +763,6 @@
                     el.classList.remove('opacity-0');
                     el.classList.remove('invisible');
                 } else {
-                    // Only hide if not already answered correctly (which reveals it)
-                    // But for simplicity, we just follow the toggle unless locked?
-                    // Let's strict follow toggle, but 'checkListeningAnswer' might force reveal.
-                    // Actually, if I uncheck 'Show Text', it should hide even if previously revealed? 
-                    // Let's keep it simple: Toggle affects visibility directly.
                     el.classList.add('invisible'); 
                 }
             });
@@ -699,19 +771,16 @@
         function initListeningGame() {
             const feedbackDiv = document.getElementById('listen-feedback');
             const optionsDiv = document.getElementById('listen-options');
-            feedbackDiv.innerHTML = ''; // clear previous feedback
+            feedbackDiv.innerHTML = ''; 
             
-            // Get current toggle states
             const showText = document.getElementById('chk-show-text').checked;
             const showIcon = document.getElementById('chk-show-icon').checked;
 
-            // 1. Pick random target
             const allItems = getAllItems();
             const target = allItems[Math.floor(Math.random() * allItems.length)];
             listenState.target = target;
             listenState.isLocked = false;
 
-            // 2. Pick 2 distractors (ensure unique)
             let distractors = [];
             while (distractors.length < 2) {
                 let d = allItems[Math.floor(Math.random() * allItems.length)];
@@ -720,18 +789,14 @@
                 }
             }
 
-            // 3. Combine and Shuffle
             const options = shuffle([target, ...distractors]);
 
-            // 4. Render
             optionsDiv.innerHTML = '';
             options.forEach(opt => {
                 const btn = document.createElement('button');
                 btn.className = 'bg-white border-4 border-gray-100 rounded-2xl p-4 flex flex-col items-center justify-center shadow-md hover:border-blue-200 transition transform active:scale-95 h-32 md:h-40';
                 
-                // Visibility classes based on checkboxes
                 const iconClass = showIcon ? '' : 'hidden';
-                // For text: if showText is true, we show it. If false, we use 'invisible' (takes up space but not seen)
                 const textClass = showText ? '' : 'invisible';
 
                 btn.innerHTML = `
@@ -742,7 +807,6 @@
                 optionsDiv.appendChild(btn);
             });
 
-            // 5. Auto play sound after brief delay
             setTimeout(() => playTargetSound(), 600);
         }
 
@@ -759,11 +823,9 @@
             const textEl = btnElement.querySelector('.listen-text');
 
             if (selected.word === listenState.target.word) {
-                // Correct
                 listenState.isLocked = true;
                 btnElement.classList.add('correct-highlight', 'pop');
                 
-                // Always reveal text on correct answer (remove invisible/opacity issues)
                 textEl.classList.remove('invisible', 'opacity-0');
                 textEl.classList.add('text-green-600');
 
@@ -779,7 +841,6 @@
                 }, 2500);
 
             } else {
-                // Wrong
                 btnElement.classList.add('wrong', 'shake');
                 feedbackDiv.innerHTML = `<div class="text-red-400 font-bold text-lg">Try again!</div>`;
                 speak("Oops, try again!");
@@ -791,38 +852,180 @@
             }
         }
 
+        // --- NEW: Memory Game Logic (Replaced Quiz) ---
+        
+        let memoryState = {
+            hasFlippedCard: false,
+            lockBoard: false,
+            firstCard: null,
+            secondCard: null,
+            matches: 0,
+            totalPairs: 4
+        };
+
+        function initMemoryGame() {
+            const grid = document.getElementById('memory-grid');
+            const gameOverDiv = document.getElementById('memory-game-over');
+            grid.innerHTML = '';
+            gameOverDiv.classList.add('hidden');
+            
+            memoryState.matches = 0;
+            memoryState.hasFlippedCard = false;
+            memoryState.lockBoard = false;
+            memoryState.firstCard = null;
+            memoryState.secondCard = null;
+            document.getElementById('memory-score').innerText = '0';
+
+            // Pick 4 random items
+            const allItems = getAllItems();
+            const shuffledItems = shuffle(allItems).slice(0, memoryState.totalPairs);
+            
+            let gameCards = [];
+            shuffledItems.forEach(item => {
+                // Text Card
+                gameCards.push({
+                    id: item.word,
+                    type: 'text',
+                    content: item.word,
+                    // Changed: text-black, font-black, and increased base size variable
+                    display: `<span class="font-black text-black capitalize dynamic-text" style="--base-text-size: 2.5rem;">${item.word}</span>`,
+                    rawWord: item.word
+                });
+                // Icon Card
+                gameCards.push({
+                    id: item.word,
+                    type: 'icon',
+                    content: item.icon,
+                    display: `<span class="item-icon dynamic-icon">${item.icon}</span>`,
+                    rawWord: item.word
+                });
+            });
+
+            shuffle(gameCards);
+
+            gameCards.forEach(cardData => {
+                const cardEl = document.createElement('div');
+                cardEl.className = 'memory-card w-full h-32 md:h-40 cursor-pointer';
+                cardEl.dataset.id = cardData.id;
+                cardEl.dataset.word = cardData.rawWord;
+
+                cardEl.innerHTML = `
+                    <div class="memory-card-inner">
+                        <div class="memory-front">
+                            ${cardData.display}
+                        </div>
+                        <div class="memory-back">
+                            ❓
+                        </div>
+                    </div>
+                `;
+                
+                cardEl.onclick = () => flipCard(cardEl, cardData.rawWord);
+                grid.appendChild(cardEl);
+            });
+        }
+
+        function flipCard(card, word) {
+            if (memoryState.lockBoard) return;
+            if (card === memoryState.firstCard) return; // Prevent double click
+            if (card.classList.contains('matched')) return;
+
+            card.classList.add('flipped');
+            speak(word);
+
+            if (!memoryState.hasFlippedCard) {
+                // First click
+                memoryState.hasFlippedCard = true;
+                memoryState.firstCard = card;
+                return;
+            }
+
+            // Second click
+            memoryState.secondCard = card;
+            checkForMatch();
+        }
+
+        function checkForMatch() {
+            let isMatch = memoryState.firstCard.dataset.id === memoryState.secondCard.dataset.id;
+
+            isMatch ? disableCards() : unflipCards();
+        }
+
+        function disableCards() {
+            memoryState.firstCard.classList.add('matched');
+            memoryState.secondCard.classList.add('matched');
+            
+            memoryState.matches++;
+            document.getElementById('memory-score').innerText = memoryState.matches;
+            
+            // Success sound/word
+            setTimeout(() => {
+                if (memoryState.matches === memoryState.totalPairs) {
+                    document.getElementById('memory-game-over').classList.remove('hidden');
+                    speak("Amazing memory!");
+                } else {
+                    speak("Good job!");
+                }
+            }, 500);
+
+            resetBoard();
+        }
+
+        function unflipCards() {
+            memoryState.lockBoard = true;
+
+            setTimeout(() => {
+                memoryState.firstCard.classList.remove('flipped');
+                memoryState.secondCard.classList.remove('flipped');
+                resetBoard();
+            }, 1200);
+        }
+
+        function resetBoard() {
+            [memoryState.hasFlippedCard, memoryState.lockBoard] = [false, false];
+            [memoryState.firstCard, memoryState.secondCard] = [null, null];
+        }
+
         // --- UI Switching ---
 
         function switchMode(mode) {
-            const learnView = document.getElementById('learn-view');
-            const gameView = document.getElementById('game-view');
-            const listenView = document.getElementById('listen-view');
+            const views = {
+                'learn': document.getElementById('learn-view'),
+                'game': document.getElementById('game-view'),
+                'listen': document.getElementById('listen-view'),
+                'memory': document.getElementById('memory-view')
+            };
             
-            const btnLearn = document.getElementById('btn-learn');
-            const btnGame = document.getElementById('btn-game');
-            const btnListen = document.getElementById('btn-listen');
+            const btns = {
+                'learn': document.getElementById('btn-learn'),
+                'game': document.getElementById('btn-game'),
+                'listen': document.getElementById('btn-listen'),
+                'memory': document.getElementById('btn-memory')
+            };
             
             const navBar = document.getElementById('nav-bar-container');
 
-            // Reset All
-            [learnView, gameView, listenView].forEach(v => v.classList.add('hidden'));
-            [btnLearn, btnGame, btnListen].forEach(b => b.classList.remove('active'));
-            navBar.classList.add('hidden'); // Default hide
+            // Hide All
+            Object.values(views).forEach(v => v.classList.add('hidden'));
+            Object.values(btns).forEach(b => b.classList.remove('active'));
+            navBar.classList.add('hidden'); 
 
-            if (mode === 'learn') {
-                learnView.classList.remove('hidden');
-                btnLearn.classList.add('active');
-                navBar.classList.remove('hidden');
-                navBar.style.height = 'auto';
-                navBar.style.opacity = '1';
-            } else if (mode === 'game') {
-                gameView.classList.remove('hidden');
-                btnGame.classList.add('active');
-                initGame();
-            } else if (mode === 'listen') {
-                listenView.classList.remove('hidden');
-                btnListen.classList.add('active');
-                initListeningGame();
+            // Show Selected
+            if (views[mode]) {
+                views[mode].classList.remove('hidden');
+                btns[mode].classList.add('active');
+                
+                if (mode === 'learn') {
+                    navBar.classList.remove('hidden');
+                    navBar.style.height = 'auto';
+                    navBar.style.opacity = '1';
+                } else if (mode === 'game') {
+                    initGame();
+                } else if (mode === 'listen') {
+                    initListeningGame();
+                } else if (mode === 'memory') {
+                    initMemoryGame();
+                }
             }
         }
 

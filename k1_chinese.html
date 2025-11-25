@@ -65,10 +65,18 @@
             background: #4f46e5;
         }
         
-        /* 下拉動畫 */
-        .panel-transition {
-            transition: all 0.3s ease-in-out;
-            overflow: hidden;
+        /* 翻牌特效 CSS */
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+        .backface-hidden {
+            backface-visibility: hidden;
+        }
+        .rotate-y-180 {
+            transform: rotateY(180deg);
         }
     </style>
 </head>
@@ -84,14 +92,18 @@
             </h1>
 
             <!-- Controls Group -->
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap justify-center items-center gap-2 md:gap-3">
                 <!-- Mode Switch Buttons -->
-                <div class="bg-white p-1 rounded-full shadow-sm border border-slate-200 flex">
-                    <button onclick="setMode('learn')" id="btn-learn" class="px-6 py-2 rounded-full text-lg font-bold transition-all flex items-center gap-2">
-                        <i data-lucide="book-open" width="20"></i> 學習
+                <div class="bg-white p-1 rounded-full shadow-sm border border-slate-200 flex flex-wrap justify-center">
+                    <button onclick="setMode('learn')" id="btn-learn" class="px-4 py-2 rounded-full text-base md:text-lg font-bold transition-all flex items-center gap-1 md:gap-2">
+                        <i data-lucide="book-open" width="18"></i> 學習
                     </button>
-                    <button onclick="setMode('game')" id="btn-game" class="px-6 py-2 rounded-full text-lg font-bold transition-all flex items-center gap-2">
-                        <i data-lucide="gamepad-2" width="20"></i> 遊戲
+                    <button onclick="setMode('game')" id="btn-game" class="px-4 py-2 rounded-full text-base md:text-lg font-bold transition-all flex items-center gap-1 md:gap-2">
+                        <i data-lucide="search" width="18"></i> 找找看
+                    </button>
+                    <!-- Changed to Memory Mode (Harder) -->
+                    <button onclick="setMode('memory')" id="btn-memory" class="px-4 py-2 rounded-full text-base md:text-lg font-bold transition-all flex items-center gap-1 md:gap-2 text-slate-500 hover:bg-slate-100">
+                        <i data-lucide="brain-circuit" width="18"></i> 記憶配對
                     </button>
                 </div>
 
@@ -132,15 +144,15 @@
         </div>
     </div>
 
-    <!-- Game Status Bar (Only visible in Game Mode) -->
+    <!-- Game Status Bar (Only visible in Game/Memory Mode) -->
     <div id="game-bar" class="hidden max-w-5xl mx-auto mb-6 bg-indigo-600 text-white rounded-2xl p-4 shadow-lg transform transition-all">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
-                <button onclick="repeatQuestion()" class="bg-white/20 hover:bg-white/30 p-3 rounded-full transition-colors" title="再聽一次">
+                <button onclick="repeatQuestion()" class="bg-white/20 hover:bg-white/30 p-3 rounded-full transition-colors" title="提示/重聽">
                     <i data-lucide="volume-2" width="28" height="28"></i>
                 </button>
                 <div>
-                    <p class="text-indigo-200 text-sm">題目</p>
+                    <p class="text-indigo-200 text-sm" id="game-label">遊戲</p>
                     <p id="game-instruction" class="text-xl font-bold">請找出...</p>
                 </div>
             </div>
@@ -156,9 +168,14 @@
         <!-- 按鈕將由 JavaScript 動態生成 -->
     </div>
 
-    <!-- Cards Grid -->
+    <!-- Main Grid (Used for Learn and Find Game) -->
     <div id="cards-container" class="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         <!-- 卡片將由 JavaScript 動態生成 -->
+    </div>
+
+    <!-- Memory Game Area (Used for Memory Mode) -->
+    <div id="memory-container" class="hidden max-w-4xl mx-auto grid grid-cols-3 md:grid-cols-4 gap-4 pb-20">
+        <!-- 記憶卡片將在這裡生成 -->
     </div>
 
     <!-- Full Screen Feedback Overlay -->
@@ -172,7 +189,7 @@
 
     <!-- Footer -->
     <div class="max-w-5xl mx-auto mt-8 text-center text-slate-400 text-sm">
-        老師小撇步：點擊右上角的「齒輪」圖示，可以調整字體大小或隱藏圖案喔！
+        老師小撇步：切換到「記憶配對」模式，挑戰小朋友的記憶力，翻出兩張一樣的卡片吧！
     </div>
 
     <script>
@@ -204,6 +221,10 @@
             { id: 17, word: "姐姐", emoji: "👧", category: "family", color: "bg-green-100" },
             { id: 18, word: "弟弟", emoji: "👶", category: "family", color: "bg-green-100" },
             { id: 19, word: "妹妹", emoji: "🧒", category: "family", color: "bg-green-100" },
+
+            // 心情表情
+            { id: 20, word: "笑", emoji: "😄", category: "emotions", color: "bg-orange-100" },
+            { id: 21, word: "哭", emoji: "😭", category: "emotions", color: "bg-orange-100" },
         ];
 
         const categories = [
@@ -212,14 +233,21 @@
             { id: 'body', name: '身體部位', icon: 'smile' },
             { id: 'family', name: '親愛家人', icon: 'heart' },
             { id: 'objects', name: '生活物品', icon: 'package' },
+            { id: 'emotions', name: '心情表情', icon: 'smile-plus' },
         ];
 
         // 應用程式狀態
         let currentCategory = 'all';
-        let isGameMode = false;
+        let currentMode = 'learn'; // 'learn', 'game', 'memory'
         let score = 0;
         let targetItem = null;
         let isProcessing = false; 
+        
+        // 記憶遊戲專用變數
+        let memoryCards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let lockBoard = false;
 
         // --- 顯示設定控制 ---
 
@@ -227,15 +255,12 @@
             const panel = document.getElementById('settings-panel');
             const btn = document.getElementById('btn-settings');
             
-            // 切換隱藏狀態
             if (panel.classList.contains('hidden')) {
                 panel.classList.remove('hidden');
-                // 增加選中狀態樣式
                 btn.classList.add('bg-indigo-100', 'text-indigo-600');
                 btn.classList.remove('bg-white', 'text-slate-500');
             } else {
                 panel.classList.add('hidden');
-                // 移除選中狀態樣式
                 btn.classList.remove('bg-indigo-100', 'text-indigo-600');
                 btn.classList.add('bg-white', 'text-slate-500');
             }
@@ -258,30 +283,55 @@
         // --- 核心功能 ---
 
         function setMode(mode) {
-            isGameMode = (mode === 'game');
+            currentMode = mode;
             
             const btnLearn = document.getElementById('btn-learn');
             const btnGame = document.getElementById('btn-game');
+            const btnMemory = document.getElementById('btn-memory');
+            
             const activeClass = "bg-indigo-500 text-white shadow-md";
             const inactiveClass = "text-slate-500 hover:bg-slate-100";
+            
+            // 重置按鈕樣式
+            [btnLearn, btnGame, btnMemory].forEach(btn => {
+                btn.className = "px-4 py-2 rounded-full text-base md:text-lg font-bold transition-all flex items-center gap-1 md:gap-2 " + inactiveClass;
+            });
 
-            if (isGameMode) {
-                btnLearn.className = btnLearn.className.replace(activeClass, inactiveClass).replace("bg-indigo-500 text-white shadow-md", "text-slate-500 hover:bg-slate-100");
-                btnGame.className = "px-6 py-2 rounded-full text-lg font-bold transition-all flex items-center gap-2 " + activeClass;
+            // 根據模式設定介面
+            const gameBar = document.getElementById('game-bar');
+            const cardsContainer = document.getElementById('cards-container');
+            const memoryContainer = document.getElementById('memory-container');
+            const gameInstruction = document.getElementById('game-instruction');
+
+            if (mode === 'learn') {
+                btnLearn.className = "px-4 py-2 rounded-full text-base md:text-lg font-bold transition-all flex items-center gap-1 md:gap-2 " + activeClass;
+                gameBar.classList.add('hidden');
+                cardsContainer.classList.remove('hidden');
+                memoryContainer.classList.add('hidden');
+                window.speechSynthesis.cancel();
+                renderCards();
+            } else if (mode === 'game') {
+                btnGame.className = "px-4 py-2 rounded-full text-base md:text-lg font-bold transition-all flex items-center gap-1 md:gap-2 " + activeClass;
+                gameBar.classList.remove('hidden');
+                cardsContainer.classList.remove('hidden');
+                memoryContainer.classList.add('hidden');
                 
-                document.getElementById('game-bar').classList.remove('hidden');
+                gameInstruction.innerText = "請找出...";
                 score = 0;
                 updateScore();
                 startNewRound();
-            } else {
-                btnGame.className = btnGame.className.replace(activeClass, inactiveClass).replace("bg-indigo-500 text-white shadow-md", "text-slate-500 hover:bg-slate-100");
-                btnLearn.className = "px-6 py-2 rounded-full text-lg font-bold transition-all flex items-center gap-2 " + activeClass;
+                renderCards();
+            } else if (mode === 'memory') {
+                btnMemory.className = "px-4 py-2 rounded-full text-base md:text-lg font-bold transition-all flex items-center gap-1 md:gap-2 " + activeClass;
+                gameBar.classList.remove('hidden');
+                cardsContainer.classList.add('hidden');
+                memoryContainer.classList.remove('hidden');
                 
-                document.getElementById('game-bar').classList.add('hidden');
-                window.speechSynthesis.cancel();
+                gameInstruction.innerText = "配對遊戲";
+                score = 0;
+                updateScore();
+                initMemoryGame();
             }
-
-            renderCards();
         }
 
         function speak(text, callback) {
@@ -295,7 +345,7 @@
             window.speechSynthesis.speak(utterance);
         }
 
-        // --- 遊戲邏輯 ---
+        // --- 一般遊戲邏輯 ---
 
         function getFilteredData() {
             return currentCategory === 'all' 
@@ -306,73 +356,181 @@
         function startNewRound() {
             const items = getFilteredData();
             if (items.length === 0) return;
+
             const randomIndex = Math.floor(Math.random() * items.length);
             targetItem = items[randomIndex];
+            
             document.getElementById('game-instruction').innerText = `請找出...`;
+            
             setTimeout(() => {
                 repeatQuestion();
             }, 500);
         }
 
         function repeatQuestion() {
-            if (!targetItem) return;
-            speak(`請找出 ${targetItem.word}`);
+            if (currentMode === 'game' && targetItem) {
+                speak(`請找出 ${targetItem.word}`);
+            } else if (currentMode === 'memory') {
+                speak("找出一樣的卡片");
+            }
         }
 
         function handleCardClick(item, cardElement) {
             if (isProcessing) return;
 
-            if (!isGameMode) {
+            if (currentMode === 'learn') {
                 animateCard(cardElement, 'animate-pop');
                 speak(item.word);
                 return;
             }
 
-            if (item.id === targetItem.id) {
-                // 答對
-                isProcessing = true;
-                score++;
-                updateScore();
-                
-                const icon = document.getElementById('feedback-icon');
-                const title = document.getElementById('feedback-title');
-                const subtitle = document.getElementById('feedback-subtitle');
-                
-                icon.innerHTML = "🎉";
-                title.innerHTML = "好棒！";
-                title.className = "text-5xl font-bold mb-2 text-indigo-600";
-                subtitle.innerHTML = "";
-
-                showFeedback();
-                speak("好叻！答啱喇！", () => { 
-                    setTimeout(() => {
-                        hideFeedback();
-                        startNewRound();
-                        isProcessing = false;
-                    }, 1000);
-                });
-
-            } else {
-                // 答錯
-                isProcessing = true;
-                const icon = document.getElementById('feedback-icon');
-                const title = document.getElementById('feedback-title');
-                const subtitle = document.getElementById('feedback-subtitle');
-                
-                icon.innerHTML = item.emoji;
-                title.innerHTML = "你選錯了";
-                title.className = "text-5xl font-bold mb-2 text-red-500";
-                subtitle.innerHTML = `這是 <b>${item.word}</b>`;
-
-                showFeedback();
-                speak(`你選錯了，這是 ${item.word}`, () => {
-                    setTimeout(() => {
-                        hideFeedback();
-                        isProcessing = false;
-                    }, 1500);
-                });
+            // 找找看模式
+            if (currentMode === 'game') {
+                if (item.id === targetItem.id) {
+                    // 答對
+                    isProcessing = true;
+                    score++;
+                    updateScore();
+                    showFeedback(true, item);
+                    speak("好叻！答啱喇！", () => { 
+                        setTimeout(() => {
+                            hideFeedback();
+                            startNewRound();
+                            isProcessing = false;
+                        }, 1000);
+                    });
+                } else {
+                    // 答錯
+                    isProcessing = true;
+                    showFeedback(false, item);
+                    speak(`你選錯了，這是 ${item.word}`, () => {
+                        setTimeout(() => {
+                            hideFeedback();
+                            isProcessing = false;
+                        }, 1500);
+                    });
+                }
             }
         }
+
+        // --- 記憶遊戲邏輯 (新) ---
+
+        function initMemoryGame() {
+            const container = document.getElementById('memory-container');
+            container.innerHTML = '';
+            
+            const items = getFilteredData();
+            // 隨機選出6個 (不足則全選)
+            let selectedItems = [...items].sort(() => 0.5 - Math.random()).slice(0, 6);
+            if (selectedItems.length < 6) {
+                // 如果分類少於6個，就盡量補到偶數或至少能玩
+                selectedItems = [...items];
+            }
+            
+            // 複製成兩份並洗牌
+            memoryCards = [...selectedItems, ...selectedItems].sort(() => 0.5 - Math.random());
+            
+            flippedCards = [];
+            matchedPairs = 0;
+            lockBoard = false;
+
+            memoryCards.forEach((item, index) => {
+                const card = createMemoryCardHTML(item, index);
+                container.appendChild(card);
+            });
+            
+            lucide.createIcons();
+            speak("遊戲開始，找出一樣的卡片");
+        }
+
+        function createMemoryCardHTML(item, index) {
+            const cardContainer = document.createElement('div');
+            cardContainer.className = "perspective-1000 w-full h-40 md:h-48 cursor-pointer group";
+            cardContainer.onclick = () => flipCard(cardContainer, item, index);
+            
+            cardContainer.innerHTML = `
+                <div class="card-inner relative w-full h-full text-center transition-transform duration-500 transform-style-3d shadow-md rounded-2xl bg-white border-2 border-indigo-100" id="card-${index}">
+                    <!-- 背面 (Cover) -->
+                    <div class="card-front absolute w-full h-full backface-hidden rounded-2xl bg-indigo-500 flex items-center justify-center">
+                        <i data-lucide="help-circle" class="text-white w-12 h-12 opacity-50"></i>
+                    </div>
+                    <!-- 正面 (Content) -->
+                    <div class="card-back absolute w-full h-full backface-hidden rotate-y-180 rounded-2xl ${item.color} flex flex-col items-center justify-center border-4 border-white">
+                        <div class="dynamic-emoji text-5xl mb-2 filter drop-shadow-sm">${item.emoji}</div>
+                        <h2 class="dynamic-text text-2xl font-black text-slate-800 tracking-widest">${item.word}</h2>
+                    </div>
+                </div>
+            `;
+            return cardContainer;
+        }
+
+        function flipCard(element, item, index) {
+            if (lockBoard) return;
+            // 防止重複點擊同一張
+            const inner = element.querySelector('.card-inner');
+            if (inner.classList.contains('rotate-y-180')) return;
+
+            // 翻開
+            inner.classList.add('rotate-y-180');
+            speak(item.word); // 翻開時唸出單字
+
+            flippedCards.push({ element, item, index });
+
+            if (flippedCards.length === 2) {
+                checkForMatch();
+            }
+        }
+
+        function checkForMatch() {
+            lockBoard = true;
+            const [first, second] = flippedCards;
+            
+            const isMatch = first.item.id === second.item.id;
+
+            if (isMatch) {
+                disableCards();
+            } else {
+                unflipCards();
+            }
+        }
+
+        function disableCards() {
+            matchedPairs++;
+            score++;
+            updateScore();
+            
+            // 播放成功音效 (這裡用 TTS 簡單代替)
+            // speak("叮咚"); 
+            
+            flippedCards = [];
+            lockBoard = false;
+
+            if (matchedPairs === memoryCards.length / 2) {
+                setTimeout(() => {
+                    showFeedback(true, {word: "全部完成！", emoji: "🏆"});
+                    speak("太厲害了！全部答對！", () => {
+                         setTimeout(() => {
+                            hideFeedback();
+                            initMemoryGame(); // 重新開始
+                        }, 2000);
+                    });
+                }, 500);
+            }
+        }
+
+        function unflipCards() {
+            setTimeout(() => {
+                flippedCards.forEach(cardObj => {
+                    const inner = cardObj.element.querySelector('.card-inner');
+                    inner.classList.remove('rotate-y-180');
+                });
+                flippedCards = [];
+                lockBoard = false;
+            }, 1000); // 1秒後蓋回去
+        }
+
+
+        // --- 通用 UI 輔助 ---
 
         function updateScore() {
             document.getElementById('score-display').innerText = score;
@@ -384,12 +542,26 @@
             element.classList.add(animationClass);
         }
 
-        // --- UI 渲染 ---
-
-        function showFeedback() {
+        function showFeedback(isCorrect, item) {
             const overlay = document.getElementById('feedback-overlay');
-            const content = document.getElementById('feedback-content');
+            const icon = document.getElementById('feedback-icon');
+            const title = document.getElementById('feedback-title');
+            const subtitle = document.getElementById('feedback-subtitle');
+            
+            if (isCorrect) {
+                icon.innerHTML = "🎉";
+                title.innerHTML = "好棒！";
+                title.className = "text-5xl font-bold mb-2 text-indigo-600";
+                subtitle.innerHTML = "";
+            } else {
+                icon.innerHTML = item.emoji;
+                title.innerHTML = "你選錯了";
+                title.className = "text-5xl font-bold mb-2 text-red-500";
+                subtitle.innerHTML = `這是 <b>${item.word}</b>`;
+            }
+
             overlay.classList.remove('opacity-0');
+            const content = document.getElementById('feedback-content');
             content.classList.remove('scale-0');
             content.classList.add('scale-100');
         }
@@ -420,8 +592,16 @@
                 btn.onclick = () => {
                     currentCategory = cat.id;
                     renderCategories();
-                    renderCards();
-                    if (isGameMode) {
+                    
+                    if (currentMode === 'learn' || currentMode === 'game') {
+                        renderCards();
+                    } else if (currentMode === 'memory') {
+                        score = 0;
+                        updateScore();
+                        initMemoryGame(); // 記憶模式切換分類要重置
+                    }
+                    
+                    if (currentMode === 'game') {
                         score = 0;
                         updateScore();
                         startNewRound();
@@ -439,7 +619,6 @@
 
             items.forEach(item => {
                 const card = document.createElement('div');
-                
                 let cardClasses = `
                     ${item.color} 
                     relative cursor-pointer rounded-3xl p-6 
@@ -448,22 +627,20 @@
                     select-none min-h-[200px]
                 `;
 
-                if (!isGameMode) {
+                if (currentMode === 'learn') {
                     cardClasses += " hover:shadow-xl hover:-translate-y-2 group";
                 } else {
                     cardClasses += " active:scale-95 hover:shadow-lg";
                 }
-
                 card.className = cardClasses;
 
                 card.innerHTML = `
-                    ${!isGameMode ? `
+                    ${currentMode === 'learn' ? `
                     <div class="absolute top-4 right-4 text-slate-400 group-hover:text-indigo-600 transition-colors">
                         <i data-lucide="volume-2" width="24" height="24"></i>
                     </div>` : ''}
 
-                    <!-- Dynamic classes control size and display -->
-                    <div class="dynamic-emoji mb-4 filter drop-shadow-sm ${!isGameMode ? 'transform group-hover:scale-110 transition-transform duration-300' : ''}">
+                    <div class="dynamic-emoji mb-4 filter drop-shadow-sm ${currentMode === 'learn' ? 'transform group-hover:scale-110 transition-transform duration-300' : ''}">
                         ${item.emoji}
                     </div>
 
@@ -471,19 +648,18 @@
                         ${item.word}
                     </h2>
                 `;
-
                 card.onclick = () => handleCardClick(item, card);
                 container.appendChild(card);
             });
             
-            if (!isGameMode) lucide.createIcons();
+            if (currentMode === 'learn') lucide.createIcons();
         }
 
         // 初始化
         window.onload = () => {
             setMode('learn');
             renderCategories();
-            updateSizes(); // 確保初始大小正確
+            updateSizes(); 
         };
 
     </script>
